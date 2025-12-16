@@ -1,0 +1,50 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       String   @id @default(uuid())
+  username String
+  email    String
+  password String
+  role     Role
+  markets  Market[]
+}
+
+model Market {
+  id     String  @id @default(uuid())
+  userId String
+  opinion   String
+  description String
+  user   User    @relation(fields: [userId], references: [id])
+  orders Order[]
+  trades Trade[]
+}
+
+model Order {
+  id       String @id @default(uuid())
+  marketId String
+  market   Market @relation(fields: [marketId], references: [id])
+}
+
+model Trade {
+  id       String @id @default(uuid())
+  marketId String
+  market   Market @relation(fields: [marketId], references: [id])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
