@@ -14,37 +14,84 @@ datasource db {
 }
 
 model User {
-  id       String   @id @default(uuid())
-  username String
-  email    String
-  password String
-  role     Role
-  markets  Market[]
+  id            String   @id @default(uuid())
+  username      String
+  email         String
+  password      String
+  balance       Int    @default(1000000)
+  lockedBalance Int    @default(0)
+  role          Role
+  markets       Market[]
+  orders        Order[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Market {
-  id     String  @id @default(uuid())
-  userId String
-  opinion   String
-  description String
-  user   User    @relation(fields: [userId], references: [id])
-  orders Order[]
-  trades Trade[]
+  id              String       @id @default(uuid())
+  opinion         String
+  description     String
+  status          MarketStatus
+  expiryTime      DateTime
+  resolvedOutcome Outcome?
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  orders          Order[]
+  trades          Trade[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
 
 model Order {
-  id       String @id @default(uuid())
-  marketId String
-  market   Market @relation(fields: [marketId], references: [id])
+  id                String      @id @default(uuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id])
+  side              Outcome
+  orderType         OrderType
+  price             Int
+  quantity          Int
+  remainingQuantity Int
+  marketId          String
+  status            OrderStatus @default(OPEN)
+  market            Market      @relation(fields: [marketId], references: [id])
+  createdAt         DateTime    @default(now())
 }
 
 model Trade {
-  id       String @id @default(uuid())
-  marketId String
-  market   Market @relation(fields: [marketId], references: [id])
+  id        String   @id @default(uuid())
+  buyerId   String
+  sellerId  String
+  price     Int
+  quantity  Int
+  marketId  String
+  market    Market   @relation(fields: [marketId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 enum Role {
   USER
   ADMIN
+}
+
+enum MarketStatus {
+  OPEN
+  CLOSED
+  RESOLVED
+}
+
+enum Outcome {
+  YES
+  NO
+}
+
+enum OrderStatus {
+  OPEN
+  PARTIAL
+  FILLED
+  CANCELLED
+}
+
+enum OrderType {
+  BUY
+  SELL
 }
