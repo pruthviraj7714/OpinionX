@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import userRouter from "./routes/user.route";
+import authRouter from "./routes/auth.route";
 
 const app = express();
 
@@ -13,7 +13,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/v1/user", userRouter);
+app.use("/api/v1/auth", authRouter);
 
 app.listen(3000, () => {
   console.log("server is running on port 3000");
