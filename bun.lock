@@ -74,6 +74,8 @@
         "bullmq": "^5.66.2",
       },
       "devDependencies": {
+        "@repo/db": "*",
+        "@repo/redisclient": "*",
         "@types/bun": "latest",
       },
       "peerDependencies": {
