@@ -54,8 +54,6 @@ const registerUserController = async (
       id: user.id,
     });
   } catch (error: any) {
-    console.log(error);
-
     res.status(500).json({
       message: "Internal Server Error",
       error: error.message,
@@ -116,8 +114,6 @@ const loginUserController = async (
       role: user.role,
     });
   } catch (error: any) {
-    console.log(error);
-
     res.status(500).json({
       message: "Internal Server Error",
       error: error.message,
