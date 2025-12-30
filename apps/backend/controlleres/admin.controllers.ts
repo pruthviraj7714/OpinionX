@@ -2,6 +2,8 @@ import { prisma } from "@repo/db";
 import { CreateMarketSchema } from "@repo/shared";
 import type { Request, Response } from "express";
 import { marketQueue } from "@repo/queues";
+import { DEFAULT_MARKET_FEE_PERCENT } from "../config";
+import { Prisma } from "../../../packages/db/generated/prisma/client";
 
 const createMarketController = async (req: Request, res: Response) => {
   try {
@@ -17,18 +19,94 @@ const createMarketController = async (req: Request, res: Response) => {
 
     const userId = req.user?.id!;
 
-    const { description, expiryTime, opinion } = data;
+    const {
+      description,
+      expiryTime,
+      opinion,
+      initialLiquidity,
+      feePercent: inputFeePercent,
+    } = data;
 
-    const market = await prisma.market.create({
-      data: {
-        description,
-        expiryTime,
-        opinion,
-        userId,
+    const admin = await prisma.user.findUnique({
+      where: {
+        id: req.user!.id,
       },
     });
 
+    if (!admin) {
+      res.status(401).json({
+        message: "Admin Not found",
+      });
+      return;
+    }
+
+    if (admin.balance.lt(initialLiquidity)) {
+      res.status(400).json({
+        message: "Insufficient balance",
+      });
+      return;
+    }
+
+    const feePercent = inputFeePercent
+      ? new Prisma.Decimal(inputFeePercent)
+      : DEFAULT_MARKET_FEE_PERCENT;
+
+    if (
+      (inputFeePercent && inputFeePercent.lessThan(0)) ||
+      inputFeePercent?.greaterThan(5)
+    ) {
+      res.status(400).json({
+        message: "Fee Percent Must be between 0% and 5%",
+      });
+      return;
+    }
+    const platformFeeAmount = initialLiquidity.mul(feePercent).div(100);
+
+    const finalLiquidity = initialLiquidity.minus(platformFeeAmount);
+
+    const yesPool = finalLiquidity.mul(50).div(100);
+    const noPool = finalLiquidity.mul(50).div(100);
+
+    const market = await prisma.$transaction(async (tx) => {
+      const market = await tx.market.create({
+        data: {
+          description,
+          expiryTime,
+          opinion,
+          userId,
+          yesPool,
+          noPool,
+        },
+      });
+
+      await tx.platformFee.create({
+        data: {
+          marketId: market.id,
+          amount: platformFeeAmount,
+        },
+      });
+
+      await tx.user.update({
+        where: {
+          id: req.user!.id,
+        },
+        data: {
+          balance: {
+            decrement: initialLiquidity,
+          },
+        },
+      });
+
+      return market;
+    });
+
     const delay = new Date(expiryTime).getTime() - Date.now();
+
+    if (delay <= 0) {
+      return res.status(400).json({
+        message: "Expiry time must be in the future",
+      });
+    }
 
     await marketQueue.add(
       "close-market-on-expiry",

@@ -136,7 +136,6 @@ const fetchUserAuthInfoController = async (
         balance: true,
         createdAt: true,
         email: true,
-        lockedBalance: true,
         username: true,
         updatedAt: true,
       },

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Decimal } from "decimal.js";
 
 export const SignUpSchema = z.object({
   username: z
@@ -25,4 +26,12 @@ export const CreateMarketSchema = z.object({
   expiryTime: z.coerce.date({
     error: "It should be valid Date",
   }),
+  initialLiquidity: z
+    .instanceof(Decimal)
+    .or(z.string().transform((v) => new Decimal(v)))
+    .refine((v) => v.dp() <= 2, "Too many decimal places"),
+    feePercent : z
+  .instanceof(Decimal)
+  .or(z.string().transform((v) => new Decimal(v)))
+  .refine((v) => v.dp() <= 2, "Too many decimal places").optional()
 });
