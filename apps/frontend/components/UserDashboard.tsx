@@ -3,6 +3,7 @@
 import { BACKEND_URL } from "@/lib/config";
 import axios from "axios";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -77,8 +78,9 @@ const UserDashboard = () => {
 
       <div className="space-y-4">
         {markets.map((market) => (
-          <div
+          <Link
             key={market.id}
+            href={`/market/${market.id}`}
             className="bg-white rounded-xl shadow-sm p-5 border"
           >
             <div className="flex justify-between items-start">
@@ -118,7 +120,7 @@ const UserDashboard = () => {
                 {new Date(market.createdAt).toLocaleDateString()}
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 

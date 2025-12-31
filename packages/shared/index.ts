@@ -16,6 +16,18 @@ export const SignInSchema = z.object({
   password: z.string(),
 });
 
+const decimalSchema = z
+  .union([
+    z.instanceof(Decimal),
+    z.string().min(1).transform((v) => new Decimal(v)),
+  ])
+  .refine((v) => v.isFinite(), {
+    message: "Invalid decimal value",
+  })
+  .refine((v) => v.dp() <= 2, {
+    message: "Too many decimal places (max 2)",
+  });
+
 export const CreateMarketSchema = z.object({
   opinion: z
     .string()
@@ -26,12 +38,6 @@ export const CreateMarketSchema = z.object({
   expiryTime: z.coerce.date({
     error: "It should be valid Date",
   }),
-  initialLiquidity: z
-    .instanceof(Decimal)
-    .or(z.string().transform((v) => new Decimal(v)))
-    .refine((v) => v.dp() <= 2, "Too many decimal places"),
-    feePercent : z
-  .instanceof(Decimal)
-  .or(z.string().transform((v) => new Decimal(v)))
-  .refine((v) => v.dp() <= 2, "Too many decimal places").optional()
+  initialLiquidity: decimalSchema,
+  feePercent: decimalSchema.optional().nullable(),
 });

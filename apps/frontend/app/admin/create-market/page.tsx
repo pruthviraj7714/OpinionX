@@ -16,33 +16,38 @@ type FormData = z.infer<typeof CreateMarketSchema>;
 export default function CreateMarketPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter()
+  const router = useRouter();
   const { data, status } = useSession();
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
   } = useForm<FormData>({
     resolver: zodResolver(CreateMarketSchema),
   });
 
   const onSubmit = async (formData: FormData) => {
     if (status !== "authenticated") return;
+
     setLoading(true);
     setServerError(null);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/admin/markets`, formData, {
-        headers: {
-          Authorization: `Bearer ${data?.accessToken}`,
-        },
-      });
+      const res = await axios.post(
+        `${BACKEND_URL}/admin/markets`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${data?.accessToken}`,
+          },
+        }
+      );
+
       toast.success(res.data?.message || "Market created successfully");
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (err: any) {
-      setServerError("Failed to create market: " + err.message);
+      setServerError(err.response?.data?.message || err.message);
     } finally {
       setLoading(false);
     }
@@ -53,18 +58,21 @@ export default function CreateMarketPage() {
       <h1 className="text-2xl font-bold mb-6">Create Market</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Opinion */}
         <div>
           <label className="block font-medium">Opinion</label>
           <input
             {...register("opinion")}
             className="w-full mt-1 p-2 border rounded"
-            placeholder="e.g. Will BTC cross $100k?"
           />
           {errors.opinion && (
-            <p className="text-red-500 text-sm">{errors.opinion.message}</p>
+            <p className="text-red-500 text-sm">
+              {errors.opinion.message}
+            </p>
           )}
         </div>
 
+        {/* Description */}
         <div>
           <label className="block font-medium">Description</label>
           <textarea
@@ -73,19 +81,56 @@ export default function CreateMarketPage() {
             rows={4}
           />
           {errors.description && (
-            <p className="text-red-500 text-sm">{errors.description.message}</p>
+            <p className="text-red-500 text-sm">
+              {errors.description.message}
+            </p>
           )}
         </div>
 
+        {/* Expiry */}
         <div>
           <label className="block font-medium">Expiry Time</label>
           <input
             type="datetime-local"
+            {...register("expiryTime")}
             className="w-full mt-1 p-2 border rounded"
-            onChange={(e) => setValue("expiryTime", new Date(e.target.value))}
           />
           {errors.expiryTime && (
-            <p className="text-red-500 text-sm">Invalid expiry date</p>
+            <p className="text-red-500 text-sm">
+              {errors.expiryTime.message}
+            </p>
+          )}
+        </div>
+
+        {/* Initial Liquidity */}
+        <div>
+          <label className="block font-medium">Initial Liquidity</label>
+          <input
+            type="number"
+            step="0.01"
+            {...register("initialLiquidity")}
+            className="w-full mt-1 p-2 border rounded"
+          />
+          {errors.initialLiquidity && (
+            <p className="text-red-500 text-sm">
+              {errors.initialLiquidity.message}
+            </p>
+          )}
+        </div>
+
+        {/* Fee Percent */}
+        <div>
+          <label className="block font-medium">Fee Percent (optional)</label>
+          <input
+            type="number"
+            step="0.01"
+            {...register("feePercent")}
+            className="w-full mt-1 p-2 border rounded"
+          />
+          {errors.feePercent && (
+            <p className="text-red-500 text-sm">
+              {errors.feePercent.message}
+            </p>
           )}
         </div>
 
