@@ -3,6 +3,7 @@ import {
   getMarketByIdController,
   getMarketsController,
   getMarketTrades,
+  placeTradeController,
 } from "../controlleres/market.controllers";
 import { requireAuth, requireUser } from "../middlewares/user.middleware";
 
@@ -23,5 +24,13 @@ marketRouter.get(
   requireUser,
   getMarketTrades
 );
+
+marketRouter.post(
+  "/:marketId/trades",
+  requireAuth,
+  requireUser,
+  placeTradeController
+);
+
 
 export default marketRouter;

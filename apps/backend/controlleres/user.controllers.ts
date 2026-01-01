@@ -1,35 +1,35 @@
 import { prisma } from "@repo/db";
 import type { Request, Response } from "express";
 
-const fetchUserOrdersController = async (req: Request, res: Response) => {
+const fetchUserPositionAndTradesController = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const userId = req.user?.id;
+    const marketId = req.params.marketId;
 
-    const orders = await prisma.order.findMany({
-      where: {
-        userId,
+    const [position, trades] = await Promise.all([
+      prisma.position.findFirst({
+        where: {
+          marketId,
+          userId,
+        },
+      }),
+      prisma.trade.findMany({
+        where: {
+          userId,
+          marketId,
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      data: {
+        position: position || {},
+        trades: trades || [],
       },
     });
-
-    res.status(200).json(orders);
-  } catch (error) {
-    res.status(500).json({
-      message: "Internal Server Error",
-    });
-  }
-};
-
-const fetchUserTradesController = async (req: Request, res: Response) => {
-  try {
-    const userId = req.user?.id;
-
-    const trades = await prisma.trade.findMany({
-      where: {
-        OR: [{ buyerId: userId }, { sellerId: userId }],
-      },
-    });
-
-    res.status(200).json(trades);
   } catch (error) {
     res.status(500).json({
       message: "Internal Server Error",
@@ -47,7 +47,6 @@ const fetchUserProfieController = async (req: Request, res: Response) => {
       },
       select: {
         balance: true,
-        lockedBalance: true,
         createdAt: true,
         email: true,
         username: true,
@@ -63,4 +62,4 @@ const fetchUserProfieController = async (req: Request, res: Response) => {
   }
 };
 
-export { fetchUserOrdersController, fetchUserTradesController, fetchUserProfieController };
+export { fetchUserPositionAndTradesController, fetchUserProfieController };
