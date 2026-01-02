@@ -85,9 +85,10 @@ const AdminDashboard = () => {
 
       <div className="space-y-4">
         {markets.map((market) => (
-          <div
+          <Link
+            href={`/market/${market.id}`}
             key={market.id}
-            className="bg-white rounded-xl shadow-sm p-5 border"
+            className="bg-white rounded-xl cursor-pointer shadow-sm p-5 border"
           >
             <div className="flex justify-between items-start">
               <div>
@@ -126,7 +127,7 @@ const AdminDashboard = () => {
                 {new Date(market.createdAt).toLocaleDateString()}
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
