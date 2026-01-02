@@ -167,4 +167,57 @@ const fetchAdminMarketsController = async (req: Request, res: Response) => {
   }
 };
 
-export { createMarketController, fetchAdminMarketsController };
+const fetchMarketPositionsAndTradesController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userId = req.user?.id!;
+    const marketId = req.params.marketId!;
+
+    const market = await prisma.market.findFirst({
+      where: {
+        id: marketId,
+        userId,
+      },
+    });
+
+    if (!market) {
+      res.status(400).json({
+        message: "Market is accessed by only respective admin",
+      });
+      return;
+    }
+
+    const [positions, trades] = await Promise.all([
+      prisma.position.findMany({
+        where: {
+          marketId,
+        },
+      }),
+
+      prisma.trade.findMany({
+        where: {
+          marketId,
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      data: {
+        positions: positions || [],
+        trades: trades || [],
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export {
+  createMarketController,
+  fetchAdminMarketsController,
+  fetchMarketPositionsAndTradesController,
+};
