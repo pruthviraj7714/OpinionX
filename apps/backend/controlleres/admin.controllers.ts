@@ -1,5 +1,5 @@
 import { prisma } from "@repo/db";
-import { CreateMarketSchema } from "@repo/shared";
+import { CreateMarketSchema, ResolveOutcomeSchema } from "@repo/shared";
 import type { Request, Response } from "express";
 import { marketQueue } from "@repo/queues";
 import { DEFAULT_MARKET_FEE_PERCENT } from "../config";
@@ -71,7 +71,7 @@ const createMarketController = async (req: Request, res: Response) => {
       const market = await tx.market.create({
         data: {
           description,
-          expiryTime,
+          expiryTime: new Date(expiryTime),
           opinion,
           userId,
           yesPool,
@@ -216,8 +216,83 @@ const fetchMarketPositionsAndTradesController = async (
   }
 };
 
+const resolveOutcomeController = async (req: Request, res: Response) => {
+  try {
+    const { success, error, data } = ResolveOutcomeSchema.safeParse(req.body);
+    if (!success) {
+      res.status(400).json({
+        message: "Invalid Inputs",
+        error: error.message,
+      });
+      return;
+    }
+
+    const userId = req.user?.id!;
+
+    const marketId = req.params.marketId!;
+
+    const market = await prisma.market.findFirst({
+      where: {
+        id: marketId,
+        userId,
+      },
+    });
+
+    if (!market) {
+      res.status(400).json({
+        message: "Market not found or you don't have access!",
+      });
+      return;
+    }
+
+    if (market.status === "OPEN") {
+      res.status(409).json({
+        message: "Market is still open",
+      });
+      return;
+    }
+
+    if (market.status === "RESOLVED") {
+      res.status(409).json({
+        message: "Market is already resolved",
+      });
+      return;
+    }
+
+    const { outcome } = data;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.market.update({
+        where: {
+          id: marketId,
+        },
+        data: {
+          status: "RESOLVED",
+          resolvedOutcome: outcome,
+        },
+      });
+
+      //TODO: Logic of payout
+      // const positions = await tx.position.findMany({
+      //   where : {
+      //     marketId,
+      //   }
+      // });
+    });
+
+    res.status(200).json({
+      message: "Market is successfully resolved with given outcome",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
 export {
   createMarketController,
   fetchAdminMarketsController,
   fetchMarketPositionsAndTradesController,
+  resolveOutcomeController,
 };

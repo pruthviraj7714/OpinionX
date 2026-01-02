@@ -38,9 +38,9 @@ export const CreateMarketSchema = z.object({
   description: z
     .string()
     .min(5, { error: "Description should be at least of 15 characters" }),
-  expiryTime: z.coerce.date({
-    error: "It should be valid Date",
-  }),
+    expiryTime: z.coerce.date({
+      error: "Expiry time must be a valid date & time",
+    }),
   initialLiquidity: decimalSchema,
   feePercent: decimalSchema.optional().nullable(),
 });
@@ -50,3 +50,7 @@ export const PlaceTradeSchema = z.object({
   action: z.enum(["BUY", "SELL"], { error: "Action should be valid Value" }),
   amount: decimalSchema,
 });
+
+export const ResolveOutcomeSchema = z.object({
+  outcome : z.enum(["YES", "NO"], {error : "Valid Value Should be selected"})
+})

@@ -58,7 +58,6 @@ export default function CreateMarketPage() {
       <h1 className="text-2xl font-bold mb-6">Create Market</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Opinion */}
         <div>
           <label className="block font-medium">Opinion</label>
           <input
@@ -72,7 +71,6 @@ export default function CreateMarketPage() {
           )}
         </div>
 
-        {/* Description */}
         <div>
           <label className="block font-medium">Description</label>
           <textarea
@@ -87,7 +85,6 @@ export default function CreateMarketPage() {
           )}
         </div>
 
-        {/* Expiry */}
         <div>
           <label className="block font-medium">Expiry Time</label>
           <input
@@ -102,7 +99,6 @@ export default function CreateMarketPage() {
           )}
         </div>
 
-        {/* Initial Liquidity */}
         <div>
           <label className="block font-medium">Initial Liquidity</label>
           <input
@@ -118,7 +114,6 @@ export default function CreateMarketPage() {
           )}
         </div>
 
-        {/* Fee Percent */}
         <div>
           <label className="block font-medium">Fee Percent (optional)</label>
           <input
