@@ -17,9 +17,7 @@ interface IMarket {
   status: "OPEN" | "RESOLVED" | "CLOSED";
 }
 
-interface FetchMarketResponse {
-  data: IMarket;
-}
+type FetchMarketResponse = IMarket;
 
 interface IPosition {
   id: string;
@@ -75,7 +73,7 @@ export default function AdminMarketPageComponent({
         }
       );
 
-      setMarketData(res.data.data);
+      setMarketData(res.data);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error?.message);
     }

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2 } from "lucide-react";
+import ProbabilityChart from "./ProbabilityChart";
 
 interface IMarket {
   opinion: string;
@@ -30,6 +31,8 @@ interface IMarket {
     yes: string;
     no: string;
   };
+  noOfTraders: number;
+  trades: ITrade[];
 }
 
 type FetchMarketResponse = IMarket;
@@ -63,6 +66,16 @@ interface FetchUserPositionAndTradesResponse {
   };
 }
 
+interface FetchUserBalanceResponse {
+  balance: Decimal;
+}
+
+type YesNoBucket = {
+  timestamp: string;
+  yes: number;
+  no: number;
+};
+
 export default function MarketPageComponent({
   marketId,
 }: {
@@ -79,13 +92,28 @@ export default function MarketPageComponent({
   );
   const [position, setPosition] = useState<IPosition | null>(null);
   const [trades, setTrades] = useState<ITrade[]>([]);
-  const [marketDistribution, setMarketDistribution] = useState<{
-    yes: Decimal;
-    no: Decimal;
-  }>({
-    yes: new Decimal(50),
-    no: new Decimal(50),
-  });
+  const [balance, setBalance] = useState<Decimal>(new Decimal(0));
+  const [marketTrades, setMarketTrades] = useState<ITrade[]>([]);
+  const [probabilityChartData, setProbabilityChartData] = useState<YesNoBucket[]>([]);
+  const [chartInterval, setChartInterval] = useState('5m');
+
+  const fetchUserBalance = async () => {
+    if (!data || !data.accessToken) return;
+    try {
+      const res = await axios.get<FetchUserBalanceResponse>(
+        `${BACKEND_URL}/user/balance`,
+        {
+          headers: {
+            Authorization: `Bearer ${data.accessToken}`,
+          },
+        }
+      );
+
+      setBalance(res.data.balance);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error?.message);
+    }
+  };
 
   const fetchMarketInfo = async () => {
     try {
@@ -99,23 +127,7 @@ export default function MarketPageComponent({
       );
 
       setMarketData(res.data);
-
-      const yesPool = new Decimal(res.data.yesPool);
-      const noPool = new Decimal(res.data.noPool);
-
-      const totalPool = yesPool.plus(noPool);
-
-      const yesDistribution = totalPool.isZero()
-        ? new Decimal(0)
-        : yesPool.div(totalPool).mul(100);
-      const noDistribution = totalPool.isZero()
-        ? new Decimal(0)
-        : noPool.div(totalPool).mul(100);
-
-      setMarketDistribution({
-        yes: yesDistribution,
-        no: noDistribution,
-      });
+      setMarketTrades(res.data.trades);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error?.message);
     }
@@ -138,6 +150,7 @@ export default function MarketPageComponent({
       );
       toast.success(res.data.message, { position: "top-center" });
       fetchMarketInfo();
+      fetchUserBalance();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error?.message, {
         position: "top-center",
@@ -157,21 +170,21 @@ export default function MarketPageComponent({
     );
 
     if (currentTab === "BUY" && currentSharesTab === "YES") {
-      newYesPool = new Decimal(marketData.yesPool).plus(amount);
-      newNoPool = k.div(newYesPool);
-      amountToBeRecieved = new Decimal(marketData.noPool).minus(newNoPool);
-    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
       newNoPool = new Decimal(marketData.noPool).plus(amount);
       newYesPool = k.div(newNoPool);
       amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
-    } else if (currentTab === "SELL" && currentSharesTab === "YES") {
-      newYesPool = new Decimal(marketData.yesPool).minus(amount);
+    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
+      newYesPool = new Decimal(marketData.yesPool).plus(amount);
       newNoPool = k.div(newYesPool);
-      amountToBeRecieved = newNoPool.minus(new Decimal(marketData.noPool));
+      amountToBeRecieved = new Decimal(marketData.noPool).minus(newNoPool);
+    } else if (currentTab === "SELL" && currentSharesTab === "YES") {
+      newYesPool = new Decimal(marketData.yesPool).plus(amount);
+      newNoPool = k.div(newYesPool);
+      amountToBeRecieved = new Decimal(marketData.noPool).minus(newNoPool);
     } else if (currentTab === "SELL" && currentSharesTab === "NO") {
-      newNoPool = new Decimal(marketData.noPool).minus(amount);
+      newNoPool = new Decimal(marketData.noPool).plus(amount);
       newYesPool = k.div(newNoPool);
-      amountToBeRecieved = newYesPool.minus(new Decimal(marketData.yesPool));
+      amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
     }
 
     setAmountToRecieve(amountToBeRecieved || new Decimal(0));
@@ -180,7 +193,7 @@ export default function MarketPageComponent({
   const fetchUserPositionAndTrades = async () => {
     try {
       const res = await axios.get<FetchUserPositionAndTradesResponse>(
-        `${BACKEND_URL}/users/${marketId}/position-and-trades`,
+        `${BACKEND_URL}/user/${marketId}/position-and-trades`,
         {
           headers: {
             Authorization: `Bearer ${data?.accessToken}`,
@@ -197,10 +210,44 @@ export default function MarketPageComponent({
     }
   };
 
+  const handleMax = () => {
+    if (!position) return;
+
+    if (currentTab === "BUY") {
+      setAmount(balance.toString());
+    } else {
+      if (currentSharesTab === "YES") {
+        setAmount(position.yesShares.toString());
+      } else {
+        setAmount(position.noShares.toString());
+      }
+    }
+  };
+
+  const fetchProbabilityChartData = async () => {
+    try {
+      const res = await axios.get(
+        `${BACKEND_URL}/markets/${marketId}/charts/probability?interval=${chartInterval}`,
+        {
+          headers: {
+            Authorization: `Bearer ${data?.accessToken}`,
+          },
+        }
+      );
+      setProbabilityChartData(res.data.points);
+    } catch (error : any) {
+      toast.error(error?.response?.data?.message || error?.message, {
+        position: "top-center",
+      });
+    }
+  }
+
   useEffect(() => {
     if (marketId && status === "authenticated") {
       fetchMarketInfo();
       fetchUserPositionAndTrades();
+      fetchUserBalance();
+      fetchProbabilityChartData();
     }
   }, [marketId, status]);
 
@@ -232,6 +279,7 @@ export default function MarketPageComponent({
         <div className="bg-white rounded-xl shadow p-6 space-y-3">
           <h1 className="text-2xl font-semibold">{marketData.opinion}</h1>
           <p className="text-gray-600">{marketData.description}</p>
+          <span>{marketData.noOfTraders} traders trading in this market</span>
 
           <div className="flex flex-wrap gap-4 text-sm text-gray-500">
             <span>
@@ -249,7 +297,7 @@ export default function MarketPageComponent({
         <div className="bg-white rounded-xl shadow p-6">
           <h2 className="font-medium mb-2">Market Probability</h2>
           <div className="h-48 flex items-center justify-center text-gray-400">
-            Probability Chart
+            <ProbabilityChart data={probabilityChartData}  />
           </div>
         </div>
 
@@ -262,7 +310,7 @@ export default function MarketPageComponent({
             />
             <div
               className="bg-red-500"
-              style={{ width: `${marketDistribution.no}%` }}
+              style={{ width: `${marketData.probability.no}%` }}
             />
           </div>
           <div className="flex justify-between text-sm text-gray-600">
@@ -306,9 +354,24 @@ export default function MarketPageComponent({
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">
-                Amount to {currentTab} {currentSharesTab}
-              </label>
+              <div className="flex justify-between items-center text-sm text-gray-600">
+                <span>Available Balance</span>
+                <span className="font-medium text-gray-900">
+                  ${new Decimal(balance).toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-medium">
+                  Amount to {currentTab} {currentSharesTab}
+                </label>
+
+                <button
+                  onClick={handleMax}
+                  className="text-xs cursor-pointer text-white font-semibold bg-black px-4 py-2 hover:bg-black/80 rounded-2xl"
+                >
+                  Max
+                </button>
+              </div>
               <Input
                 type="number"
                 min={0}
@@ -349,11 +412,11 @@ export default function MarketPageComponent({
             <TableCaption>Your Trades</TableCaption>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px]">Amount In</TableHead>
+                <TableHead className="w-[100px]">Action</TableHead>
+                <TableHead>Side</TableHead>
+                <TableHead>Amount In</TableHead>
                 <TableHead>Amount Out</TableHead>
                 <TableHead>Created At</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Side</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -361,6 +424,10 @@ export default function MarketPageComponent({
                 trades.length > 0 &&
                 trades.map((trade) => (
                   <TableRow key={trade.id}>
+                    <TableCell className="font-medium">
+                      {trade.action}
+                    </TableCell>
+                    <TableCell className="font-medium">{trade.side}</TableCell>
                     <TableCell className="font-medium">
                       {trade.amountIn}
                     </TableCell>
@@ -373,10 +440,6 @@ export default function MarketPageComponent({
                         timeStyle: "short",
                       }).format(new Date(trade.createdAt))}
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {trade.action}
-                    </TableCell>
-                    <TableCell className="font-medium">{trade.side}</TableCell>
                   </TableRow>
                 ))}
             </TableBody>

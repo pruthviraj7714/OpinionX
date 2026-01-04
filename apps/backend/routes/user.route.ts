@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireUser } from "../middlewares/user.middleware";
 import {
+  fetchUserBalanceController,
   fetchUserPositionAndTradesController,
   fetchUserProfieController,
 } from "../controlleres/user.controllers";
@@ -16,6 +17,12 @@ userRouter.get(
   fetchUserPositionAndTradesController
 );
 
+userRouter.get(
+  "/balance",
+  requireAuth,
+  requireUser,
+  fetchUserBalanceController
+);
 
 //TODO:POST /api/markets/:marketId/claim
 

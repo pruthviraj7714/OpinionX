@@ -2,6 +2,7 @@ import { prisma } from "@repo/db";
 import { PlaceTradeSchema } from "@repo/shared";
 import type { Request, Response } from "express";
 import { Decimal } from "../../../packages/db/generated/prisma/internal/prismaNamespace";
+import { applyTrade, getIntervalMs } from "../helper";
 
 const getMarketsController = async (req: Request, res: Response) => {
   try {
@@ -38,31 +39,42 @@ const getMarketByIdController = async (req: Request, res: Response) => {
   try {
     const marketId = req.params.marketId;
 
-    const market = await prisma.market.findFirst({
-      where: {
-        id: marketId,
-      },
-    });
+    const [market, tradersCount, trades] = await Promise.all([
+      await prisma.market.findFirst({
+        where: {
+          id: marketId,
+        },
+      }),
+      await prisma.position.count({ where: { marketId } }),
+      await prisma.trade.findMany({
+        where: { marketId },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
     if (!market) {
-      res.status(400).json({
+      res.status(404).json({
         message: "Market not found!",
       });
       return;
     }
 
-    const yesProbability = market.yesPool.div(
-      market.yesPool.plus(market.noPool)
-    );
+    const totalPool = market.yesPool.plus(market.noPool);
+
+    const yesProbability = totalPool.eq(0)
+      ? new Decimal(0.5)
+      : market.yesPool.div(totalPool);
 
     const noProbability = new Decimal(1).minus(yesProbability);
 
     res.status(200).json({
       ...market,
       probability: {
-        yes: yesProbability,
-        no: noProbability,
+        yes: yesProbability.mul(100).toNumber(),
+        no: noProbability.mul(100).toNumber(),
       },
+      trades,
+      noOfTraders: tradersCount,
     });
   } catch (error) {
     res.status(500).json({
@@ -111,14 +123,14 @@ const placeTradeController = async (req: Request, res: Response) => {
   const userId = req.user?.id!;
 
   try {
-    const market = await prisma.market.findFirst({
+    const market = await prisma.market.findUnique({
       where: {
         id: marketId,
       },
     });
 
     if (!market) {
-      res.status(400).json({
+      res.status(404).json({
         message: "Market not found",
       });
       return;
@@ -187,9 +199,9 @@ const placeTradeController = async (req: Request, res: Response) => {
       let delta;
       if (action === "BUY") {
         if (side === "YES") {
-          newYesPool = market.yesPool.plus(amount);
-          newNoPool = k.div(newYesPool);
-          delta = new Decimal(market.noPool).minus(newNoPool);
+          newNoPool = market.noPool.plus(amount);
+          newYesPool = k.div(newNoPool);
+          delta = new Decimal(market.yesPool).minus(newYesPool);
 
           await tx.position.upsert({
             where: {
@@ -211,9 +223,9 @@ const placeTradeController = async (req: Request, res: Response) => {
             },
           });
         } else {
-          newNoPool = market.noPool.plus(amount);
-          newYesPool = k.div(newNoPool);
-          delta = new Decimal(market.yesPool).minus(newYesPool);
+          newYesPool = market.yesPool.plus(amount);
+          newNoPool = k.div(newYesPool);
+          delta = new Decimal(market.noPool).minus(newNoPool);
           await tx.position.upsert({
             where: {
               userId_marketId: {
@@ -247,37 +259,54 @@ const placeTradeController = async (req: Request, res: Response) => {
         });
       } else {
         if (side === "YES") {
-          newYesPool = market.yesPool.minus(amount);
+          newYesPool = market.yesPool.plus(amount);
           newNoPool = k.div(newYesPool);
-          delta = newNoPool.minus(market.noPool);
-        } else {
-          newNoPool = market.noPool.minus(amount);
-          newYesPool = k.div(newNoPool);
-          delta = newYesPool.minus(market.yesPool);
-        }
+          delta = market.noPool.minus(newNoPool);
 
-        await tx.position.upsert({
-          where: {
-            userId_marketId: {
+          await tx.position.upsert({
+            where: {
+              userId_marketId: {
+                userId,
+                marketId,
+              },
+            },
+            create: {
               userId,
               marketId,
+              yesShares: new Decimal(0),
+              noShares: new Decimal(0),
             },
-          },
-          create: {
-            userId,
-            marketId,
-            yesShares: side === "YES" ? delta : new Decimal(0),
-            noShares: side === "NO" ? delta : new Decimal(0),
-          },
-          update: {
-            yesShares: {
-              decrement: delta,
+            update: {
+              yesShares: {
+                decrement: amount,
+              },
             },
-            noShares: {
-              decrement: delta,
+          });
+        } else {
+          newNoPool = market.noPool.plus(amount);
+          newYesPool = k.div(newNoPool);
+          delta = market.yesPool.minus(newYesPool);
+
+          await tx.position.upsert({
+            where: {
+              userId_marketId: {
+                userId,
+                marketId,
+              },
             },
-          },
-        });
+            create: {
+              userId,
+              marketId,
+              yesShares: new Decimal(0),
+              noShares: new Decimal(0),
+            },
+            update: {
+              noShares: {
+                decrement: amount,
+              },
+            },
+          });
+        }
 
         await tx.user.update({
           where: {
@@ -343,6 +372,67 @@ const placeTradeController = async (req: Request, res: Response) => {
     res.status(500).json({
       message: "Internal Server Error",
     });
+  }
+};
+
+export const fetchProbabilityOverTimeChartDataController = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { marketId } = req.params;
+    const interval = (req.query.interval as string) || "5m";
+    const intervalMs = getIntervalMs(interval);
+
+    const market = await prisma.market.findUnique({
+      where: { id: marketId },
+    });
+
+    if (!market) {
+      return res.status(404).json({ message: "Market not found" });
+    }
+
+    const trades = await prisma.trade.findMany({
+      where: { marketId },
+      orderBy: { createdAt: "asc" },
+    });
+
+    let yesPool = new Decimal(0);
+    let noPool = new Decimal(0);
+
+    const bucketMap = new Map<number, { yes: Decimal; no: Decimal }>();
+
+    for (const trade of trades) {
+      ({ yesPool, noPool } = applyTrade(trade, yesPool, noPool));
+
+      const ts = trade.createdAt.getTime();
+      const bucketStart = Math.floor(ts / intervalMs) * intervalMs;
+
+      bucketMap.set(bucketStart, {
+        yes: yesPool,
+        no: noPool,
+      });
+    }
+
+    const points = Array.from(bucketMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([timestamp, pools]) => {
+        const total = pools.yes.plus(pools.no);
+        const yesProb = total.eq(0)
+          ? new Decimal(0.5)
+          : pools.yes.div(total);
+
+        return {
+          timestamp: new Date(timestamp).toISOString(),
+          yes: yesProb.mul(100).toNumber(),
+          no: new Decimal(1).minus(yesProb).mul(100).toNumber(),
+        };
+      });
+
+    res.status(200).json({ interval, points });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 

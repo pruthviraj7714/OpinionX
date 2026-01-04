@@ -62,4 +62,33 @@ const fetchUserProfieController = async (req: Request, res: Response) => {
   }
 };
 
-export { fetchUserPositionAndTradesController, fetchUserProfieController };
+const fetchUserBalanceController = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({ message: "User not found" });
+      return;
+    }
+
+    res.status(200).json({
+      balance: user.balance,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+export {
+  fetchUserPositionAndTradesController,
+  fetchUserProfieController,
+  fetchUserBalanceController,
+};

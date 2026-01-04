@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  fetchProbabilityOverTimeChartDataController,
   getMarketByIdController,
   getMarketsController,
   getMarketTrades,
@@ -31,6 +32,13 @@ marketRouter.post(
   requireUser,
   placeTradeController
 );
+
+marketRouter.get(
+  "/:marketId/charts/probability",
+  requireAuth,
+  requireUser,
+  fetchProbabilityOverTimeChartDataController
+)
 
 
 export default marketRouter;
