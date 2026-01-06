@@ -30,7 +30,7 @@ export function TradingCard({
   onTrade,
 }: TradingCardProps) {
   return (
-    <div className="lg:col-span-2 rounded-2xl border border-zinc-700 bg-zinc-800/50 backdrop-blur p-6 space-y-5">
+    <div className="lg:col-span-1 rounded-2xl border border-zinc-700 bg-zinc-800/50 backdrop-blur p-6 space-y-5">
       <div className="flex gap-2 bg-zinc-900/50 p-1 rounded-lg border border-zinc-700">
         {(["BUY", "SELL"] as const).map((tab) => (
           <button
