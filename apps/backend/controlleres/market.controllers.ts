@@ -83,7 +83,7 @@ const getMarketByIdController = async (req: Request, res: Response) => {
   }
 };
 
-const getMarketTrades = async (req: Request, res: Response) => {
+const getMarketTradesController = async (req: Request, res: Response) => {
   try {
     const marketId = req.params.marketId;
 
@@ -97,7 +97,32 @@ const getMarketTrades = async (req: Request, res: Response) => {
     });
 
     res.status(200).json({
-      data: trades || [],
+      trades: trades || [],
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+const getUserMarketTradesController = async (req: Request, res: Response) => {
+  try {
+    const marketId = req.params.marketId!;
+    const userId = req.user?.id!;
+
+    const trades = await prisma.trade.findMany({
+      where: {
+        marketId,
+        userId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.status(200).json({
+      trades: trades || [],
     });
   } catch (error) {
     res.status(500).json({
@@ -418,9 +443,7 @@ const fetchProbabilityOverTimeChartDataController = async (
       .sort(([a], [b]) => a - b)
       .map(([timestamp, pools]) => {
         const total = pools.yes.plus(pools.no);
-        const yesProb = total.eq(0)
-          ? new Decimal(0.5)
-          : pools.yes.div(total);
+        const yesProb = total.eq(0) ? new Decimal(0.5) : pools.yes.div(total);
 
         return {
           timestamp: new Date(timestamp).toISOString(),
@@ -466,12 +489,199 @@ const fetchParticipationChartDataController = async (
   }
 };
 
+const checkEligibilityController = async (req: Request, res: Response) => {
+  try {
+    const marketId = req.params.marketId!;
+    const userId = req.user?.id!;
+
+    const market = await prisma.market.findUnique({ where: { id: marketId } });
+
+    if (!market) {
+      res.status(404).json({ message: "Market not found!" });
+      return;
+    }
+
+    if (market.status !== "RESOLVED") {
+      res.status(400).json({
+        message: "Market is not resolved yet",
+      });
+      return;
+    }
+
+    const position = await prisma.position.findUnique({
+      where: {
+        userId_marketId: {
+          userId,
+          marketId,
+        },
+      },
+    });
+
+    if (!position) {
+      res.status(200).json({
+        participated: false,
+        payoutStatus: "NOT_ELIGIBLE",
+        payoutAmount: "0",
+      });
+      return;
+    }
+
+    const winningShares =
+      market.resolvedOutcome === "YES"
+        ? position?.yesShares
+        : position?.noShares;
+
+    if (winningShares.lte(0)) {
+      res.status(200).json({
+        participated: true,
+        payoutStatus: "NOT_ELIGIBLE",
+        payoutAmount: "0",
+      });
+      return;
+    }
+
+    if (position.payoutStatus === "CLAIMED") {
+      res.status(200).json({
+        participated: true,
+        payoutStatus: "CLAIMED",
+        payoutAmount: position.payoutAmount,
+      });
+      return;
+    }
+
+    res.status(200).json({
+      participated: true,
+      payoutStatus: "ELIGIBLE",
+      payoutAmount: winningShares,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+type PositionRow = {
+  id: string;
+  userId: string;
+  createdAt: Date;
+  marketId: string;
+  noShares: Decimal;
+  updatedAt: Date;
+  yesShares: Decimal;
+  payoutStatus: "CLAIMED" | null | "UNCLAIMED";
+  claimedAt: null | Date;
+  payoutAmount: Decimal;
+};
+
+const claimPayoutController = async (req: Request, res: Response) => {
+  try {
+    const marketId = req.params.marketId!;
+    const userId = req.user?.id!;
+
+    const market = await prisma.market.findUnique({ where: { id: marketId } });
+
+    if (!market) {
+      res.status(404).json({
+        message: "Market not found!",
+      });
+      return;
+    }
+
+    if (market.status !== "RESOLVED") {
+      res.status(400).json({
+        message: "Market is not resolved yet",
+      });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const positions = await tx.$queryRawUnsafe<PositionRow[]>(
+        `
+        SELECT *
+        FROM "Position"
+        WHERE "userId" = $1
+          AND "marketId" = $2
+        LIMIT 1 FOR UPDATE
+        `,
+        userId,
+        marketId
+      );
+
+      const position = positions[0];
+
+      if (!position) {
+        throw new Error("NOT_PARTICIPATED");
+      }
+
+      if (position.payoutStatus === "CLAIMED") {
+        throw new Error("ALREADY_CLAIMED");
+      }
+
+      const payoutAmount =
+        market.resolvedOutcome === "YES"
+          ? position.yesShares
+          : position.noShares;
+
+      if (payoutAmount.lte(0)) {
+        throw new Error("NOT_ELIGIBLE");
+      }
+
+      await tx.position.update({
+        where: {
+          id: position.id,
+        },
+        data: {
+          claimedAt: new Date(),
+          payoutAmount,
+          payoutStatus: "CLAIMED",
+        },
+      });
+      await tx.user.update({
+        where: {
+          id: userId,
+        },
+        data: {
+          balance: {
+            increment: payoutAmount,
+          },
+        },
+      });
+    });
+
+    res.status(200).json({
+      message: "Payout Successfully Claimed",
+    });
+  } catch (error: any) {
+    if (error.message === "ALREADY_CLAIMED") {
+      return res.status(200).json({
+        message: "Payout already claimed",
+        payoutStatus: "CLAIMED",
+      });
+    }
+
+    if (error.message === "NOT_ELIGIBLE") {
+      return res.status(400).json({
+        message: "Not eligible for payout",
+      });
+    }
+
+    if (error.message === "NOT_PARTICIPATED") {
+      return res.status(400).json({
+        message: "You did not participate in this market",
+      });
+    }
+
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
 
 export {
   getMarketsController,
   getMarketByIdController,
-  getMarketTrades,
+  getMarketTradesController,
+  getUserMarketTradesController,
   placeTradeController,
   fetchProbabilityOverTimeChartDataController,
-  fetchParticipationChartDataController
+  fetchParticipationChartDataController,
+  checkEligibilityController,
+  claimPayoutController,
 };

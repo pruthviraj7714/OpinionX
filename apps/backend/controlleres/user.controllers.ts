@@ -1,34 +1,20 @@
 import { prisma } from "@repo/db";
 import type { Request, Response } from "express";
 
-const fetchUserPositionAndTradesController = async (
-  req: Request,
-  res: Response
-) => {
+const fetchUserPositionController = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const marketId = req.params.marketId;
 
-    const [position, trades] = await Promise.all([
-      prisma.position.findFirst({
-        where: {
-          marketId,
-          userId,
-        },
-      }),
-      prisma.trade.findMany({
-        where: {
-          userId,
-          marketId,
-        },
-      }),
-    ]);
+    const position = await prisma.position.findFirst({
+      where: {
+        marketId,
+        userId,
+      },
+    });
 
     res.status(200).json({
-      data: {
-        position: position || {},
-        trades: trades || [],
-      },
+      position: position || {},
     });
   } catch (error) {
     res.status(500).json({
@@ -88,7 +74,7 @@ const fetchUserBalanceController = async (req: Request, res: Response) => {
 };
 
 export {
-  fetchUserPositionAndTradesController,
+  fetchUserPositionController,
   fetchUserProfieController,
   fetchUserBalanceController,
 };

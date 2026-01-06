@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth, requireUser } from "../middlewares/user.middleware";
 import {
   fetchUserBalanceController,
-  fetchUserPositionAndTradesController,
+  fetchUserPositionController,
   fetchUserProfieController,
 } from "../controlleres/user.controllers";
 
@@ -11,10 +11,10 @@ const userRouter = Router();
 userRouter.get("/me", requireAuth, requireUser, fetchUserProfieController);
 
 userRouter.get(
-  "/:marketId/position-and-trades",
+  "/:marketId/position",
   requireAuth,
   requireUser,
-  fetchUserPositionAndTradesController
+  fetchUserPositionController
 );
 
 userRouter.get(
@@ -23,7 +23,5 @@ userRouter.get(
   requireUser,
   fetchUserBalanceController
 );
-
-//TODO:POST /api/markets/:marketId/claim
 
 export default userRouter;

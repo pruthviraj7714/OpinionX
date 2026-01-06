@@ -1,10 +1,13 @@
 import { Router } from "express";
 import {
+  checkEligibilityController,
+  claimPayoutController,
   fetchParticipationChartDataController,
   fetchProbabilityOverTimeChartDataController,
   getMarketByIdController,
   getMarketsController,
-  getMarketTrades,
+  getMarketTradesController,
+  getUserMarketTradesController,
   placeTradeController,
 } from "../controlleres/market.controllers";
 import { requireAuth, requireUser } from "../middlewares/user.middleware";
@@ -20,11 +23,13 @@ marketRouter.get(
   getMarketByIdController
 );
 
+marketRouter.get("/:marketId/trades", getMarketTradesController);
+
 marketRouter.get(
-  "/:marketId/trades",
+  "/:marketId/trades/me",
   requireAuth,
   requireUser,
-  getMarketTrades
+  getUserMarketTradesController
 );
 
 marketRouter.post(
@@ -39,14 +44,27 @@ marketRouter.get(
   requireAuth,
   requireUser,
   fetchProbabilityOverTimeChartDataController
-)
+);
 
 marketRouter.get(
   "/:marketId/charts/participation",
   requireAuth,
   requireUser,
   fetchParticipationChartDataController
-)
+);
 
+marketRouter.get(
+  "/:marketId/eligibility",
+  requireAuth,
+  requireUser,
+  checkEligibilityController
+);
+
+marketRouter.post(
+  "/:marketId/claim",
+  requireAuth,
+  requireUser,
+  claimPayoutController
+);
 
 export default marketRouter;
