@@ -56,8 +56,12 @@ model Position {
   yesShares Decimal @default(0) @db.Decimal(18, 6)
   noShares  Decimal @default(0) @db.Decimal(18, 6)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  payoutStatus PayoutStatus?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  claimedAt    DateTime?
+  payoutAmount Decimal?
 
   @@unique([userId, marketId])
 }
@@ -107,4 +111,9 @@ enum Outcome {
 enum Action {
   BUY
   SELL
+}
+
+enum PayoutStatus {
+  UNCLAIMED
+  CLAIMED
 }
