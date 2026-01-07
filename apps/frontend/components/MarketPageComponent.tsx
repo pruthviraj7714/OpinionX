@@ -63,7 +63,7 @@ export default function MarketPageComponent({
     enabled: isReady,
   });
   const { data: position, isLoading: positionLoading } = useQuery({
-    queryKey: ["position"],
+    queryKey: ["position", marketId],
     queryFn: () => getUserPosition(marketId, data?.accessToken),
     enabled: isReady,
   });
@@ -274,8 +274,7 @@ export default function MarketPageComponent({
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Market Overview Card */}
-        <div className="mb-8 rounded-lg border border-border bg-card">
+        <div className="mb-8 rounded-lg border border-border bg-card px-4 py-2">
           <div className="mb-6 space-y-2">
             <h2 className="text-2xl font-semibold text-card-foreground">
               {marketData.opinion}
@@ -316,8 +315,7 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        {/* Probability Chart */}
-        <div className="mb-8 rounded-lg border border-border bg-card ">
+        <div className="mb-8 rounded-lg border border-border bg-card px-4 py-2">
           {probabilityChartDataLoading ? (
             <div className="flex h-64 items-center justify-center">
               <Loader2 className="animate-spin text-muted-foreground" />
@@ -336,9 +334,7 @@ export default function MarketPageComponent({
           )}
         </div>
 
-        {/* Main Content Grid */}
         <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Trading Section */}
           <div className="lg:col-span-2">
             {marketData.status === "OPEN" ? (
               <TradingCard
@@ -423,8 +419,7 @@ export default function MarketPageComponent({
             )}
           </div>
 
-          {/* Position Card */}
-          <div className="rounded-lg border border-border bg-card  ">
+          <div className="rounded-lg border border-border bg-card px-4 py-2">
             <h3 className="mb-4 text-lg font-semibold text-card-foreground">
               Your Position
             </h3>
@@ -457,8 +452,7 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        {/* Liquidity Distribution */}
-        <div className="mb-8 rounded-lg border border-border bg-card">
+        <div className="mb-8 rounded-lg border border-border bg-card px-4 py-2">
           <h3 className="mb-6 text-lg font-semibold text-card-foreground">
             Liquidity Distribution
           </h3>
@@ -490,8 +484,7 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        {/* Trades Section */}
-        <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden">
+        <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden  px-4 py-2">
           <div className="border-b border-border py-4">
             <div className="flex gap-4">
               {["Trades", "UserTrades"].map((tab) => (
@@ -595,8 +588,7 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        {/* Trader Distribution */}
-        <div className="rounded-lg border border-border bg-card">
+        <div className="rounded-lg border border-border bg-card px-4 py-2">
           <h3 className="mb-6 text-lg font-semibold text-card-foreground">
             Trader Distribution
           </h3>

@@ -1,122 +1,99 @@
 "use client";
 
-import { BACKEND_URL } from "@/lib/config";
-import axios from "axios";
+import { fetchMarkets } from "@/lib/api/user.api";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-
-interface IMarket {
-  id: string;
-  opinion: string;
-  description: string;
-  expiryTime: string;
-  status: "OPEN" | "RESOLVED" | "CLOSED";
-  resolvedOutcome: null | "YES" | "NO";
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface PaginatedMarketsResponse {
-  page: number;
-  limit: number;
-  totalMarkets: number;
-  totalPages: number;
-  markets: IMarket[];
-}
+import { useState } from "react";
 
 const UserDashboard = () => {
   const { data, status } = useSession();
-
-  const [markets, setMarkets] = useState<IMarket[]>([]);
+  const isReady = status === "authenticated";
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(false);
 
-  const fetchMarkets = async (pageNumber = 1) => {
-    try {
-      setLoading(true);
+  const {
+    data: marketResponse,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["markets", page, data?.accessToken],
+    queryFn: () => fetchMarkets(page, data?.accessToken),
+    enabled: isReady,
+  });
 
-      const res = await axios.get<PaginatedMarketsResponse>(
-        `${BACKEND_URL}/markets?page=${pageNumber}&limit=10`,
-        {
-          headers: {
-            Authorization: `Bearer ${data?.accessToken}`,
-          },
-        }
-      );
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-600" />
+      </div>
+    );
+  }
 
-      setMarkets(res.data.markets);
-      setPage(res.data.page);
-      setTotalPages(res.data.totalPages);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to fetch markets");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (isError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 text-red-600">
+        {error.message}
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchMarkets(1);
-    }
-  }, [status]);
-
+  const markets = marketResponse?.markets ?? [];
+  const totalPages = marketResponse?.totalPages ?? 1;
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
+    <div className="min-h-screen bg-zinc-50 px-8 py-10">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Open Markets</h1>
       </div>
 
-      {loading && <p className="text-gray-500">Loading markets...</p>}
+      {isLoading && <p className="text-gray-500">Loading markets...</p>}
 
-      {!loading && markets.length === 0 && (
+      {!isLoading && markets.length === 0 && (
         <p className="text-gray-500">No markets found.</p>
       )}
 
-      <div className="space-y-4">
+      <div className="grid gap-5">
         {markets.map((market) => (
           <Link
             key={market.id}
             href={`/market/${market.id}`}
-            className="bg-white rounded-xl shadow-sm p-5 border"
+            className="group bg-white rounded-xl border border-zinc-200 p-6 hover:shadow-md transition"
           >
-            <div className="flex justify-between items-start">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold">{market.opinion}</h2>
-                <p className="text-sm text-gray-600 mt-1">
+                <h2 className="text-lg font-medium text-zinc-900 group-hover:underline">
+                  {market.opinion}
+                </h2>
+                <p className="text-sm text-zinc-500 mt-1 line-clamp-2">
                   {market.description}
                 </p>
               </div>
 
               <span
-                className={`px-3 py-1 text-sm rounded-full font-medium ${
+                className={`shrink-0 px-3 py-1 text-xs rounded-full font-medium ${
                   market.status === "OPEN"
-                    ? "bg-green-100 text-green-700"
+                    ? "bg-emerald-100 text-emerald-700"
                     : market.status === "CLOSED"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-blue-100 text-blue-700"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-sky-100 text-sky-700"
                 }`}
               >
                 {market.status}
               </span>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-6 text-sm text-gray-600">
+            <div className="mt-5 flex flex-wrap gap-6 text-xs text-zinc-500">
               <div>
-                <span className="font-medium">Expiry:</span>{" "}
+                <span className="font-medium text-zinc-700">Expiry:</span>{" "}
                 {new Date(market.expiryTime).toLocaleString()}
               </div>
-
               <div>
-                <span className="font-medium">Outcome:</span>{" "}
+                <span className="font-medium text-zinc-700">Outcome:</span>{" "}
                 {market.resolvedOutcome ?? "—"}
               </div>
-
               <div>
-                <span className="font-medium">Created:</span>{" "}
+                <span className="font-medium text-zinc-700">Created:</span>{" "}
                 {new Date(market.createdAt).toLocaleDateString()}
               </div>
             </div>
@@ -125,25 +102,28 @@ const UserDashboard = () => {
       </div>
 
       {totalPages > 1 && (
-        <div className="flex justify-center gap-4 mt-8">
+        <div className="flex items-center justify-center gap-6 mt-10">
           <button
             disabled={page === 1}
-            onClick={() => fetchMarkets(page - 1)}
-            className="px-4 py-2 border rounded disabled:opacity-50"
+            onClick={() => setPage((p) => p - 1)}
+            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg disabled:opacity-40 hover:bg-zinc-100 transition"
           >
+            <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
 
-          <span className="px-4 py-2 font-medium">
-            Page {page} of {totalPages}
+          <span className="text-sm text-zinc-600">
+            Page <span className="font-medium">{page}</span> of{" "}
+            <span className="font-medium">{totalPages}</span>
           </span>
 
           <button
             disabled={page === totalPages}
-            onClick={() => fetchMarkets(page + 1)}
-            className="px-4 py-2 border rounded disabled:opacity-50"
+            onClick={() => setPage((p) => p + 1)}
+            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg disabled:opacity-40 hover:bg-zinc-100 transition"
           >
             Next
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}

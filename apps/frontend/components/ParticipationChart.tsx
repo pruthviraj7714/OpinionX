@@ -63,7 +63,7 @@ export default function YesNoDonutChart({ yesTraders, noTraders }: Props) {
 
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <p className="text-xs uppercase tracking-wide text-slate-400">Total</p>
-        <p className="text-2xl font-semibold text-white">{total}</p>
+        <p className="text-2xl font-semibold text-black">{total}</p>
       </div>
     </div>
   );
