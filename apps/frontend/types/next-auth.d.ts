@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 declare module "next-auth" {
   interface User {
     token?: string; 
+    username : string;
     role : "USER" | "ADMIN";
   }
 
@@ -10,6 +11,7 @@ declare module "next-auth" {
     user: {
       id: string;
       role : "USER" | "ADMIN";
+      username : string;
     } & DefaultSession["user"];
     accessToken?: string;
   }

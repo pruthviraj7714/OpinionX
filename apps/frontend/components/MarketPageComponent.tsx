@@ -45,7 +45,7 @@ export default function MarketPageComponent({
   const [currentTab, setCurrentTab] = useState<"BUY" | "SELL">("BUY");
   const [currentSharesTab, setCurrentSharesTab] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState<string>("");
-  const [amountToRecieve, setAmountToRecieve] = useState<Decimal>(
+  const [amountToReceive, setamountToReceive] = useState<Decimal>(
     new Decimal(0)
   );
   const [chartInterval, setChartInterval] = useState("5m");
@@ -61,6 +61,7 @@ export default function MarketPageComponent({
     queryKey: ["marketInfo", marketId],
     queryFn: () => getMarketInfo(marketId, data?.accessToken),
     enabled: isReady,
+    refetchInterval: 5000,
   });
   const { data: position, isLoading: positionLoading } = useQuery({
     queryKey: ["position", marketId],
@@ -195,7 +196,66 @@ export default function MarketPageComponent({
       amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
     }
 
-    setAmountToRecieve(amountToBeRecieved || new Decimal(0));
+    setamountToReceive(amountToBeRecieved || new Decimal(0));
+  };
+
+  const calculateFee = () => {
+    if (!amount) return "0.00";
+    return currentTab === "BUY"
+      ? new Decimal(amount)
+          .mul(marketData.feePercent)
+          .div(100)
+          .toFixed(2)
+          .toString()
+      : new Decimal(amountToReceive)
+          .mul(marketData.feePercent)
+          .div(100)
+          .toFixed(2)
+          .toString();
+  };
+
+  const calculateFinal = () => {
+    if (!amount) return "0.00";
+    const fee =
+      currentTab === "BUY"
+        ? new Decimal(amount).mul(marketData.feePercent).div(100)
+        : new Decimal(amountToReceive).mul(marketData.feePercent).div(100);
+    return currentTab === "BUY"
+      ? new Decimal(amount).minus(fee).toFixed(2).toString()
+      : new Decimal(amountToReceive).minus(fee).toFixed(2).toString();
+  };
+
+  const calculateFinalReceivingAmount = () => {
+    if (!marketData || !amount) return "0.00";
+
+    const fee =
+      currentTab === "BUY"
+        ? new Decimal(amount).mul(marketData.feePercent).div(100)
+        : new Decimal(amountToReceive).mul(marketData.feePercent).div(100);
+
+    const finalAmount = new Decimal(amount).minus(fee);
+
+    let newYesPool;
+    let newNoPool;
+    let amountToBeRecieved;
+
+    const k = new Decimal(marketData.yesPool).mul(
+      new Decimal(marketData.noPool)
+    );
+
+    if (currentTab === "BUY" && currentSharesTab === "YES") {
+      newNoPool = new Decimal(marketData.noPool).plus(finalAmount);
+      newYesPool = k.div(newNoPool);
+      amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
+    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
+      newYesPool = new Decimal(marketData.yesPool).plus(finalAmount);
+      newNoPool = k.div(newYesPool);
+      amountToBeRecieved = new Decimal(marketData.noPool).minus(newNoPool);
+    }
+
+    return currentTab === "BUY"
+      ? (amountToBeRecieved || 0).toString()
+      : new Decimal(amountToReceive).minus(fee).toFixed(2).toString();
   };
 
   const handleMax = () => {
@@ -272,53 +332,63 @@ export default function MarketPageComponent({
     currentTradesTab === "UserTrades" ? userTrades : marketTrades;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-zinc-950">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8 rounded-lg border border-border bg-card px-4 py-2">
+        <div className="mb-8 rounded-lg bg-zinc-900 px-8 py-10">
           <div className="mb-6 space-y-2">
-            <h2 className="text-2xl font-semibold text-card-foreground">
+            <h2 className="text-2xl font-semibold text-zinc-100">
               {marketData.opinion}
             </h2>
-            <p className="text-base text-muted-foreground">
-              {marketData.description}
-            </p>
+            <p className="text-base text-zinc-500">{marketData.description}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">
+              <span className="text-sm font-medium text-zinc-500">
                 Active Traders
               </span>
-              <span className="mt-1 text-2xl font-semibold text-foreground">
+              <span className="mt-1 text-xl font-semibold text-zinc-100">
                 {marketData.noOfTraders.toLocaleString()}
               </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">
-                Expires
+              <span className="text-sm font-medium text-zinc-500">
+                Expires on
               </span>
-              <span className="mt-1 text-2xl font-semibold text-foreground">
+              <span className="mt-1 text-xl font-semibold text-zinc-100">
                 {new Intl.DateTimeFormat("en-US", {
                   dateStyle: "medium",
-                  timeStyle : "medium"
+                  timeStyle: "short",
                 }).format(expiryDate)}
               </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">
-                Pool
+              <span className="text-sm font-medium text-zinc-500">
+                Pool Liquidity
               </span>
-              <span className="mt-1 text-sm font-semibold text-foreground">
-                YES: {marketData.yesPool} | NO: {marketData.noPool}
-              </span>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-chart-1" />
+                  <span className="text-sm font-semibold text-chart-1">
+                    {marketData.yesPool}
+                  </span>
+                </div>
+                <span className="text-xs text-zinc-500">•</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-chart-2" />
+                  <span className="text-sm font-semibold text-chart-2">
+                    {marketData.noPool}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="mb-8 rounded-lg border border-border bg-card px-4 py-2">
+        <div className="mb-8 rounded-lg border border-zinc-800  bg-zinc-900 px-4 py-2">
           {probabilityChartDataLoading ? (
             <div className="flex h-64 items-center justify-center">
-              <Loader2 className="animate-spin text-muted-foreground" />
+              <Loader2 className="animate-spin text-zinc-500" />
             </div>
           ) : probabilityChartDataError ? (
             <div className="flex h-64 items-center justify-center">
@@ -345,34 +415,38 @@ export default function MarketPageComponent({
                 amount={amount}
                 setAmount={setAmount}
                 balance={balance ? balance.toString() : "0"}
-                amountToRecieve={amountToRecieve.toString()}
+                calculateFee={calculateFee}
+                calculateFinal={calculateFinal}
+                calculateFinalReceivingAmount={calculateFinalReceivingAmount}
+                amountToReceive={amountToReceive.toString()}
                 onMax={handleMax}
                 onTrade={handlePlaceTrade}
+                platformFees={marketData.feePercent}
               />
             ) : marketData.status === "CLOSED" ? (
-              <div className="rounded-lg border border-border bg-card  text-center ">
+              <div className="rounded-lg  bg-zinc-900 text-center py-8 ">
                 <div className="mb-4 text-4xl">⏳</div>
-                <h3 className="mb-2 text-lg font-semibold text-card-foreground">
+                <h3 className="mb-2 text-lg font-semibold text-zinc-100">
                   Market Closed
                 </h3>
-                <p className="mb-3 text-sm text-muted-foreground">
+                <p className="mb-3 text-sm text-zinc-500">
                   Trading has ended. The admin will resolve the outcome soon.
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-zinc-500">
                   You'll be able to claim your payout after resolution.
                 </p>
               </div>
             ) : (
-              <div className="space-y-4 rounded-lg border border-border bg-card  ">
+              <div className="space-y-4 rounded-lg   bg-zinc-900  px-4 py-8">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">✅</span>
-                  <h3 className="text-lg font-semibold text-card-foreground">
+                  <h3 className="text-lg font-semibold text-zinc-100">
                     Market Resolved
                   </h3>
                 </div>
 
                 {checking ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-zinc-500">
                     Checking payout eligibility...
                   </p>
                 ) : eligibilityError ? (
@@ -382,7 +456,7 @@ export default function MarketPageComponent({
                 ) : eligibility && eligibility.participated ? (
                   eligibility.payoutStatus === "CLAIMED" ? (
                     <>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-zinc-500">
                         Your payout for this market has already been
                         successfully claimed.
                       </p>
@@ -392,14 +466,14 @@ export default function MarketPageComponent({
                     </>
                   ) : (
                     <>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-zinc-500">
                         You are eligible to claim your payout based on your
                         final market position.
                       </p>
                       <div className="space-y-3">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-zinc-500">
                           Amount to be claimed:{" "}
-                          <span className="font-semibold text-foreground">
+                          <span className="font-semibold text-zinc-100">
                             ${eligibility.payoutAmount}
                           </span>
                         </p>
@@ -419,28 +493,28 @@ export default function MarketPageComponent({
             )}
           </div>
 
-          <div className="rounded-lg border border-border bg-card px-4 py-2">
-            <h3 className="mb-4 text-lg font-semibold text-card-foreground">
+          <div className="rounded-lg  bg-zinc-900 px-4 py-2">
+            <h3 className="mb-4 text-lg font-semibold text-zinc-100">
               Your Position
             </h3>
 
             {positionLoading || balanceLoading ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center gap-2 text-zinc-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm">Loading your position…</span>
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="rounded-lg border border-border bg-background p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="rounded-lg   bg-zinc-900 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     YES Shares
                   </p>
                   <p className="mt-2 text-3xl font-bold text-chart-1">
                     {position?.yesShares ?? 0}
                   </p>
                 </div>
-                <div className="rounded-lg border border-border bg-background p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="rounded-lg   bg-zinc-900 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     NO Shares
                   </p>
                   <p className="mt-2 text-3xl font-bold text-chart-2">
@@ -452,8 +526,8 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        <div className="mb-8 rounded-lg border border-border bg-card px-4 py-2">
-          <h3 className="mb-6 text-lg font-semibold text-card-foreground">
+        <div className="mb-8 rounded-lg bg-zinc-900 px-4 py-2">
+          <h3 className="mb-6 text-lg font-semibold text-zinc-100">
             Liquidity Distribution
           </h3>
           <div className="space-y-4">
@@ -470,13 +544,13 @@ export default function MarketPageComponent({
             <div className="flex justify-between text-sm font-medium">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-chart-1" />
-                <span className="text-foreground">
+                <span className="text-zinc-100">
                   YES {Number(marketData.probability.yes).toFixed(2)}%
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-chart-2" />
-                <span className="text-foreground">
+                <span className="text-zinc-100">
                   NO {Number(marketData.probability.no).toFixed(2)}%
                 </span>
               </div>
@@ -484,8 +558,8 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden  px-4 py-2">
-          <div className="border-b border-border py-4">
+        <div className="mb-8 rounded-lg bg-zinc-900 overflow-hidden px-4 py-2">
+          <div className="border-b  py-4">
             <div className="flex gap-4">
               {["Trades", "UserTrades"].map((tab) => (
                 <button
@@ -493,8 +567,8 @@ export default function MarketPageComponent({
                   onClick={() => setCurrentTradesTab(tab as any)}
                   className={`pb-2 text-sm font-semibold transition-colors ${
                     currentTradesTab === tab
-                      ? "border-b-2 border-primary text-primary"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "border-b-2 border-white text-white"
+                      : "text-zinc-500 hover:text-zinc-100"
                   }`}
                 >
                   {tab === "Trades" ? "Market Trades" : "Your Trades"}
@@ -505,33 +579,33 @@ export default function MarketPageComponent({
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <TableRow className="">
+                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Action
                   </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Side
                   </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Amount In
                   </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Amount Out
                   </TableHead>
-                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TableHead className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     Created At
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {marketTradesLoading || userTradesLoading ? (
-                  <TableRow className="border-border hover:bg-transparent">
+                  <TableRow className=" hover:bg-transparent">
                     <TableCell colSpan={5} className="py-8 text-center">
-                      <Loader2 className="mx-auto inline-block animate-spin text-muted-foreground" />
+                      <Loader2 className="mx-auto inline-block animate-spin text-zinc-500" />
                     </TableCell>
                   </TableRow>
                 ) : marketTradesError || userTradesError ? (
-                  <TableRow className="border-border hover:bg-transparent">
+                  <TableRow className=" hover:bg-transparent">
                     <TableCell
                       colSpan={5}
                       className="py-8 text-center text-sm text-destructive"
@@ -541,11 +615,8 @@ export default function MarketPageComponent({
                   </TableRow>
                 ) : displayedTrades && displayedTrades.length > 0 ? (
                   displayedTrades.map((trade: ITrade) => (
-                    <TableRow
-                      key={trade.id}
-                      className="border-border hover:bg-secondary/30"
-                    >
-                      <TableCell className="font-medium text-foreground">
+                    <TableRow key={trade.id} className=" hover:bg-secondary/30">
+                      <TableCell className="font-medium text-zinc-100">
                         {trade.action}
                       </TableCell>
                       <TableCell>
@@ -559,13 +630,13 @@ export default function MarketPageComponent({
                           {trade.side}
                         </span>
                       </TableCell>
-                      <TableCell className="font-medium text-foreground">
+                      <TableCell className="font-medium text-zinc-100">
                         {trade.amountIn}
                       </TableCell>
-                      <TableCell className="font-medium text-foreground">
+                      <TableCell className="font-medium text-zinc-100">
                         {trade.amountOut}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-sm text-zinc-500">
                         {new Intl.DateTimeFormat("en-US", {
                           dateStyle: "medium",
                           timeStyle: "short",
@@ -574,10 +645,10 @@ export default function MarketPageComponent({
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow className="border-border hover:bg-transparent">
+                  <TableRow className=" hover:bg-transparent">
                     <TableCell
                       colSpan={5}
-                      className="py-8 text-center text-sm text-muted-foreground"
+                      className="py-8 text-center text-sm text-zinc-500"
                     >
                       No trades yet
                     </TableCell>
@@ -588,13 +659,13 @@ export default function MarketPageComponent({
           </div>
         </div>
 
-        <div className="rounded-lg border border-border bg-card px-4 py-2">
-          <h3 className="mb-6 text-lg font-semibold text-card-foreground">
+        <div className="rounded-lg  bg-zinc-900 px-4 py-2">
+          <h3 className="mb-6 text-lg font-semibold text-zinc-100">
             Trader Distribution
           </h3>
-          <div className="flex h-80 items-center justify-center rounded-lg bg-secondary">
+          <div className="flex h-80 items-center justify-center rounded-lg bg-zinc-800">
             {participationChartDataLoading ? (
-              <Loader2 className="animate-spin text-muted-foreground" />
+              <Loader2 className="animate-spin text-zinc-500" />
             ) : participationChartDataError ? (
               <p className="text-sm text-destructive">Failed to load data</p>
             ) : (

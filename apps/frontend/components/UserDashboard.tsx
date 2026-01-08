@@ -42,9 +42,9 @@ const UserDashboard = () => {
   const markets = marketResponse?.markets ?? [];
   const totalPages = marketResponse?.totalPages ?? 1;
   return (
-    <div className="min-h-screen bg-zinc-50 px-8 py-10">
+    <div className="min-h-screen bg-zinc-950 px-8 py-10">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Open Markets</h1>
+        <h1 className="text-2xl text-zinc-100 font-bold">Open Markets</h1>
       </div>
 
       {isLoading && <p className="text-gray-500">Loading markets...</p>}

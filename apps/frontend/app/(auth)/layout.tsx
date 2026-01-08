@@ -1,5 +1,3 @@
-import AuthAppbar from "@/components/AuthAppbar";
-
 export default function Layout({
   children,
 }: Readonly<{
@@ -7,7 +5,6 @@ export default function Layout({
 }>) {
   return (
     <>
-    {/* <AuthAppbar /> */}
       {children}
     </>
   );
