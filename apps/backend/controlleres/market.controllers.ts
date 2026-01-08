@@ -126,6 +126,22 @@ const getUserMarketTradesController = async (req: Request, res: Response) => {
   }
 };
 
+const calculateFinalAmount = (amount: Decimal, feePercent: Decimal) => {
+  const fees = amount.mul(feePercent).div(100);
+  return {
+    finalAmount: amount.minus(fees),
+    fees,
+  };
+};
+
+const calculateFinalAmountForSell = (amount: Decimal, feePercent: Decimal) => {
+  const fees = amount.mul(feePercent).div(100);
+  return {
+    finalAmountAfterFees: amount.minus(fees),
+    fees,
+  };
+};
+
 const placeTradeController = async (req: Request, res: Response) => {
   const { success, data, error } = PlaceTradeSchema.safeParse(req.body);
 
@@ -217,9 +233,16 @@ const placeTradeController = async (req: Request, res: Response) => {
       let newYesPool;
       let newNoPool;
       let delta;
+      let finalAmountAfter;
+      let feesForSell;
+      const { finalAmount, fees } = calculateFinalAmount(
+        amount,
+        market.feePercent
+      );
+
       if (action === "BUY") {
         if (side === "YES") {
-          newNoPool = market.noPool.plus(amount);
+          newNoPool = market.noPool.plus(finalAmount);
           newYesPool = k.div(newNoPool);
           delta = new Decimal(market.yesPool).minus(newYesPool);
 
@@ -243,7 +266,7 @@ const placeTradeController = async (req: Request, res: Response) => {
             },
           });
         } else {
-          newYesPool = market.yesPool.plus(amount);
+          newYesPool = market.yesPool.plus(finalAmount);
           newNoPool = k.div(newYesPool);
           delta = new Decimal(market.noPool).minus(newNoPool);
           await tx.position.upsert({
@@ -267,6 +290,13 @@ const placeTradeController = async (req: Request, res: Response) => {
           });
         }
 
+        await tx.platformFee.create({
+          data: {
+            amount: fees,
+            marketId,
+          },
+        });
+
         await tx.user.update({
           where: {
             id: userId,
@@ -283,6 +313,12 @@ const placeTradeController = async (req: Request, res: Response) => {
           newNoPool = k.div(newYesPool);
           delta = market.noPool.minus(newNoPool);
 
+          const { finalAmountAfterFees, fees } = calculateFinalAmountForSell(
+            delta,
+            market.feePercent
+          );
+          finalAmountAfter = finalAmountAfterFees;
+          feesForSell = fees;
           await tx.position.upsert({
             where: {
               userId_marketId: {
@@ -302,11 +338,29 @@ const placeTradeController = async (req: Request, res: Response) => {
               },
             },
           });
+          await tx.platformFee.create({
+            data: {
+              amount: feesForSell,
+              marketId,
+            },
+          });
         } else {
           newNoPool = market.noPool.plus(amount);
           newYesPool = k.div(newNoPool);
           delta = market.yesPool.minus(newYesPool);
 
+          const { finalAmountAfterFees, fees } = calculateFinalAmountForSell(
+            delta,
+            market.feePercent
+          );
+          finalAmountAfter = finalAmountAfterFees;
+          feesForSell = fees;
+          await tx.platformFee.create({
+            data: {
+              amount: feesForSell,
+              marketId,
+            },
+          });
           await tx.position.upsert({
             where: {
               userId_marketId: {
@@ -334,7 +388,7 @@ const placeTradeController = async (req: Request, res: Response) => {
           },
           data: {
             balance: {
-              increment: delta,
+              increment: finalAmountAfter,
             },
           },
         });
@@ -342,12 +396,12 @@ const placeTradeController = async (req: Request, res: Response) => {
 
       const trade = await tx.trade.create({
         data: {
-          amountIn: amount,
+          amountIn: action === "BUY" ? finalAmount : amount,
           side,
           marketId,
           action,
           userId,
-          amountOut: delta,
+          amountOut: action === "BUY" ? delta : finalAmountAfter!,
           price: amount.div(delta),
         },
       });

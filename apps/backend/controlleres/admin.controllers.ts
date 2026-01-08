@@ -4,6 +4,7 @@ import type { Request, Response } from "express";
 import { marketQueue } from "@repo/queues";
 import { DEFAULT_MARKET_FEE_PERCENT } from "../config";
 import { Prisma } from "../../../packages/db/generated/prisma/client";
+import { Decimal } from "../../../packages/db/generated/prisma/internal/prismaNamespace";
 
 const createMarketController = async (req: Request, res: Response) => {
   try {
@@ -185,12 +186,26 @@ const fetchMarketPositionsAndTradesController = async (
         where: {
           marketId,
         },
+        include : {
+          user : {
+            select : {
+              username : true
+            }
+          }
+        }
       }),
 
       prisma.trade.findMany({
         where: {
           marketId,
         },
+        include : {
+          user : {
+            select : {
+              username  : true
+            }
+          }
+        }
       }),
     ]);
 
@@ -199,6 +214,49 @@ const fetchMarketPositionsAndTradesController = async (
         positions: positions || [],
         trades: trades || [],
       },
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
+const fetchMarketByIdController = async (req: Request, res: Response) => {
+  try {
+    const marketId = req.params.marketId;
+
+    const [market, tradersCount] = await Promise.all([
+      await prisma.market.findFirst({
+        where: {
+          id: marketId,
+        },
+      }),
+      await prisma.position.count({ where: { marketId } }),
+    ]);
+
+    if (!market) {
+      res.status(404).json({
+        message: "Market not found!",
+      });
+      return;
+    }
+
+    const totalPool = market.yesPool.plus(market.noPool);
+
+    const yesProbability = totalPool.eq(0)
+      ? new Decimal(0.5)
+      : market.yesPool.div(totalPool);
+
+    const noProbability = new Decimal(1).minus(yesProbability);
+
+    res.status(200).json({
+      ...market,
+      probability: {
+        yes: yesProbability.mul(100).toNumber(),
+        no: noProbability.mul(100).toNumber(),
+      },
+      noOfTraders: tradersCount,
     });
   } catch (error) {
     res.status(500).json({
@@ -273,10 +331,12 @@ const resolveOutcomeController = async (req: Request, res: Response) => {
     });
   }
 };
+ 
 
 export {
   createMarketController,
   fetchAdminMarketsController,
+  fetchMarketByIdController,
   fetchMarketPositionsAndTradesController,
   resolveOutcomeController,
 };

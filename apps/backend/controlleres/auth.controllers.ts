@@ -112,6 +112,7 @@ const loginUserController = async (
       token,
       id: user.id,
       role: user.role,
+      username : user.username
     });
   } catch (error: any) {
     res.status(500).json({
