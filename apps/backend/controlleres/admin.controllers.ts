@@ -186,26 +186,26 @@ const fetchMarketPositionsAndTradesController = async (
         where: {
           marketId,
         },
-        include : {
-          user : {
-            select : {
-              username : true
-            }
-          }
-        }
+        include: {
+          user: {
+            select: {
+              username: true,
+            },
+          },
+        },
       }),
 
       prisma.trade.findMany({
         where: {
           marketId,
         },
-        include : {
-          user : {
-            select : {
-              username  : true
-            }
-          }
-        }
+        include: {
+          user: {
+            select: {
+              username: true,
+            },
+          },
+        },
       }),
     ]);
 
@@ -331,7 +331,28 @@ const resolveOutcomeController = async (req: Request, res: Response) => {
     });
   }
 };
- 
+
+const getMarketFeesStatsController = async (req: Request, res: Response) => {
+  try {
+    const marketId = req.params.marketId!;
+
+    const fees = await prisma.platformFee.aggregate({
+      where: { marketId },
+      _sum: { amount: true },
+      _count: { _all: true },
+    });
+
+    res.status(200).json({
+      marketId: marketId,
+      totalFees: fees._sum.amount?.toString() ?? "0.00",
+      tradeCount: fees._count._all,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
 
 export {
   createMarketController,
@@ -339,4 +360,5 @@ export {
   fetchMarketByIdController,
   fetchMarketPositionsAndTradesController,
   resolveOutcomeController,
+  getMarketFeesStatsController,
 };

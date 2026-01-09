@@ -221,7 +221,11 @@ const placeTradeController = async (req: Request, res: Response) => {
         return;
       }
     }
-
+    let newYesPool;
+    let newNoPool;
+    let delta;
+    let finalAmountAfter;
+    let finalFeeAmount;
     const { trade, mkt, userData } = await prisma.$transaction(async (tx) => {
       await tx.$queryRawUnsafe(
         `SELECT * FROM "Market" WHERE id = $1 FOR UPDATE`,
@@ -230,15 +234,12 @@ const placeTradeController = async (req: Request, res: Response) => {
 
       const k = market.yesPool.mul(market.noPool);
 
-      let newYesPool;
-      let newNoPool;
-      let delta;
-      let finalAmountAfter;
-      let feesForSell;
       const { finalAmount, fees } = calculateFinalAmount(
         amount,
         market.feePercent
       );
+
+      finalFeeAmount = fees;
 
       if (action === "BUY") {
         if (side === "YES") {
@@ -289,14 +290,6 @@ const placeTradeController = async (req: Request, res: Response) => {
             },
           });
         }
-
-        await tx.platformFee.create({
-          data: {
-            amount: fees,
-            marketId,
-          },
-        });
-
         await tx.user.update({
           where: {
             id: userId,
@@ -318,7 +311,7 @@ const placeTradeController = async (req: Request, res: Response) => {
             market.feePercent
           );
           finalAmountAfter = finalAmountAfterFees;
-          feesForSell = fees;
+          finalFeeAmount = fees;
           await tx.position.upsert({
             where: {
               userId_marketId: {
@@ -338,12 +331,6 @@ const placeTradeController = async (req: Request, res: Response) => {
               },
             },
           });
-          await tx.platformFee.create({
-            data: {
-              amount: feesForSell,
-              marketId,
-            },
-          });
         } else {
           newNoPool = market.noPool.plus(amount);
           newYesPool = k.div(newNoPool);
@@ -354,13 +341,8 @@ const placeTradeController = async (req: Request, res: Response) => {
             market.feePercent
           );
           finalAmountAfter = finalAmountAfterFees;
-          feesForSell = fees;
-          await tx.platformFee.create({
-            data: {
-              amount: feesForSell,
-              marketId,
-            },
-          });
+          finalFeeAmount = fees;
+
           await tx.position.upsert({
             where: {
               userId_marketId: {
@@ -403,6 +385,14 @@ const placeTradeController = async (req: Request, res: Response) => {
           userId,
           amountOut: action === "BUY" ? delta : finalAmountAfter!,
           price: amount.div(delta),
+        },
+      });
+
+      await tx.platformFee.create({
+        data: {
+          amount: finalFeeAmount,
+          marketId,
+          tradeId: trade.id,
         },
       });
 

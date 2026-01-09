@@ -5,6 +5,7 @@ import {
   fetchAdminMarketsController,
   fetchMarketByIdController,
   fetchMarketPositionsAndTradesController,
+  getMarketFeesStatsController,
   resolveOutcomeController,
 } from "../controlleres/admin.controllers";
 
@@ -39,5 +40,12 @@ adminRouter.post(
   requireAdmin,
   resolveOutcomeController
 );
+
+adminRouter.get(
+  "/markets/:marketId/stats",
+  requireAuth,
+  requireAdmin,
+  getMarketFeesStatsController
+)
 
 export default adminRouter;
