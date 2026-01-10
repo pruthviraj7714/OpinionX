@@ -67,7 +67,7 @@ export const fetchMarkets = async (
   pageNumber: number = 1,
   token?: string
 ): Promise<PaginatedMarketsResponse> => {
-  const { data } = await api.get(`/markets?page=${pageNumber}&limit=10`, {
+  const { data } = await api.get(`/markets?page=${pageNumber}&limit=5`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

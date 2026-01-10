@@ -2,7 +2,16 @@
 
 import { fetchMarkets } from "@/lib/api/user.api";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Loader2,
+  TrendingUp,
+  XCircle,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -39,6 +48,39 @@ const UserDashboard = () => {
     );
   }
 
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case "OPEN":
+        return {
+          bg: "bg-emerald-500/20",
+          text: "text-emerald-400",
+          ring: "ring-emerald-500/30",
+          icon: <TrendingUp className="h-3 w-3" />,
+        };
+      case "CLOSED":
+        return {
+          bg: "bg-amber-500/20",
+          text: "text-amber-400",
+          ring: "ring-amber-500/30",
+          icon: <Clock className="h-3 w-3" />,
+        };
+      case "RESOLVED":
+        return {
+          bg: "bg-sky-500/20",
+          text: "text-sky-400",
+          ring: "ring-sky-500/30",
+          icon: <CheckCircle2 className="h-3 w-3" />,
+        };
+      default:
+        return {
+          bg: "bg-zinc-500/20",
+          text: "text-zinc-400",
+          ring: "ring-zinc-500/30",
+          icon: <XCircle className="h-3 w-3" />,
+        };
+    }
+  };
+
   const markets = marketResponse?.markets ?? [];
   const totalPages = marketResponse?.totalPages ?? 1;
   return (
@@ -56,45 +98,96 @@ const UserDashboard = () => {
       <div className="grid gap-5">
         {markets.map((market) => (
           <Link
-            key={market.id}
             href={`/market/${market.id}`}
-            className="group bg-white rounded-xl border border-zinc-200 p-6 hover:shadow-md transition"
+            key={market.id}
+            className="group relative bg-zinc-800 rounded-xl border border-zinc-700 p-6 hover:border-zinc-600 hover:shadow-xl hover:shadow-zinc-950/50 transition-all duration-300 overflow-hidden"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-medium text-zinc-900 group-hover:underline">
-                  {market.opinion}
-                </h2>
-                <p className="text-sm text-zinc-500 mt-1 line-clamp-2">
-                  {market.description}
-                </p>
+            <div className="absolute inset-0 bg-linear-to-br from-purple-500/0 via-transparent to-pink-500/0 group-hover:from-purple-500/5 group-hover:to-pink-500/5 transition-all duration-300" />
+
+            <div className="relative">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold text-zinc-100 group-hover:text-transparent group-hover:bg-linear-to-r group-hover:from-purple-400 group-hover:to-pink-400 group-hover:bg-clip-text transition-all duration-300">
+                    {market.opinion}
+                  </h2>
+                  <p className="text-sm text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
+                    {market.description}
+                  </p>
+                </div>
+
+                <span
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full font-semibold ${getStatusConfig(market.status).bg} ${getStatusConfig(market.status).text} ring-1 ${getStatusConfig(market.status).ring}`}
+                >
+                  {getStatusConfig(market.status).icon}
+                  {market.status}
+                </span>
               </div>
 
-              <span
-                className={`shrink-0 px-3 py-1 text-xs rounded-full font-medium ${
-                  market.status === "OPEN"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : market.status === "CLOSED"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-sky-100 text-sky-700"
-                }`}
-              >
-                {market.status}
-              </span>
-            </div>
+              <div className="h-px bg-linear-to-r from-transparent via-zinc-700 to-transparent my-4" />
 
-            <div className="mt-5 flex flex-wrap gap-6 text-xs text-zinc-500">
-              <div>
-                <span className="font-medium text-zinc-700">Expiry:</span>{" "}
-                {new Date(market.expiryTime).toLocaleString()}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-zinc-500" />
+                  <div>
+                    <span className="text-zinc-500 text-xs">Expiry</span>
+                    <p className="text-zinc-300 font-medium">
+                      {new Date(market.expiryTime).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {market.resolvedOutcome === "YES" ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  ) : market.resolvedOutcome === "NO" ? (
+                    <XCircle className="h-4 w-4 text-red-400" />
+                  ) : (
+                    <TrendingUp className="h-4 w-4 text-zinc-500" />
+                  )}
+                  <div>
+                    <span className="text-zinc-500 text-xs">Outcome</span>
+                    <p
+                      className={`font-medium ${
+                        market.resolvedOutcome === "YES"
+                          ? "text-emerald-400"
+                          : market.resolvedOutcome === "NO"
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                      }`}
+                    >
+                      {market.resolvedOutcome || "Pending"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-zinc-500" />
+                  <div>
+                    <span className="text-zinc-500 text-xs">Created</span>
+                    <p className="text-zinc-300 font-medium">
+                      {new Date(market.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-medium text-zinc-700">Outcome:</span>{" "}
-                {market.resolvedOutcome ?? "—"}
-              </div>
-              <div>
-                <span className="font-medium text-zinc-700">Created:</span>{" "}
-                {new Date(market.createdAt).toLocaleDateString()}
+
+              <div className="mt-4 flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <span className="text-xs text-purple-400 font-semibold flex items-center gap-1">
+                  View Details
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </span>
               </div>
             </div>
           </Link>
@@ -106,7 +199,7 @@ const UserDashboard = () => {
           <button
             disabled={page === 1}
             onClick={() => setPage((p) => p - 1)}
-            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg disabled:opacity-40 hover:bg-zinc-100 transition"
+            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg text-zinc-100 disabled:opacity-40 hover:bg-zinc-700 cursor-pointer transition"
           >
             <ChevronLeft className="w-4 h-4" />
             Previous
@@ -120,7 +213,7 @@ const UserDashboard = () => {
           <button
             disabled={page === totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg disabled:opacity-40 hover:bg-zinc-100 transition"
+            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg text-zinc-100 disabled:opacity-40 hover:bg-zinc-700 cursor-pointer transition"
           >
             Next
             <ChevronRight className="w-4 h-4" />

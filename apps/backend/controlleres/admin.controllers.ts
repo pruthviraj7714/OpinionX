@@ -126,7 +126,7 @@ const fetchAdminMarketsController = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id!;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 5;
 
     const skip = (page - 1) * limit;
 
@@ -150,7 +150,7 @@ const fetchAdminMarketsController = async (req: Request, res: Response) => {
       limit,
       markets,
       totalMarkets,
-      totalPages: Math.floor(totalMarkets / limit),
+      totalPages: Math.ceil(totalMarkets / limit),
     });
   } catch (error) {
     res.status(500).json({

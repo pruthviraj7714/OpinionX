@@ -113,6 +113,7 @@ const AdminDashboard = () => {
         {markets.map((market) => (
           <Link
             href={`/market/${market.id}`}
+            key={market.id}
             className="group relative bg-zinc-800 rounded-xl border border-zinc-700 p-6 hover:border-zinc-600 hover:shadow-xl hover:shadow-zinc-950/50 transition-all duration-300 overflow-hidden"
           >
             <div className="absolute inset-0 bg-linear-to-br from-purple-500/0 via-transparent to-pink-500/0 group-hover:from-purple-500/5 group-hover:to-pink-500/5 transition-all duration-300" />
@@ -212,7 +213,7 @@ const AdminDashboard = () => {
           <button
             disabled={page === 1}
             onClick={() => setPage((p) => p - 1)}
-            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg disabled:opacity-40 hover:bg-zinc-100 transition"
+            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg text-zinc-100 disabled:opacity-40 hover:bg-zinc-700 cursor-pointer transition"
           >
             <ChevronLeft className="w-4 h-4" />
             Previous
@@ -226,7 +227,7 @@ const AdminDashboard = () => {
           <button
             disabled={page === totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg disabled:opacity-40 hover:bg-zinc-100 transition"
+            className="flex items-center gap-1 px-4 py-2 text-sm border rounded-lg text-zinc-100 disabled:opacity-40 hover:bg-zinc-700 cursor-pointer transition"
           >
             Next
             <ChevronRight className="w-4 h-4" />

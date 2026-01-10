@@ -179,13 +179,13 @@ export default function MarketPageComponent({
     );
 
     if (currentTab === "BUY" && currentSharesTab === "YES") {
-      newNoPool = new Decimal(marketData.noPool).plus(amount);
-      newYesPool = k.div(newNoPool);
-      amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
-    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
       newYesPool = new Decimal(marketData.yesPool).plus(amount);
       newNoPool = k.div(newYesPool);
       amountToBeRecieved = new Decimal(marketData.noPool).minus(newNoPool);
+    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
+      newNoPool = new Decimal(marketData.noPool).plus(amount);
+      newYesPool = k.div(newNoPool);
+      amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
     } else if (currentTab === "SELL" && currentSharesTab === "YES") {
       newYesPool = new Decimal(marketData.yesPool).plus(amount);
       newNoPool = k.div(newYesPool);
@@ -244,13 +244,13 @@ export default function MarketPageComponent({
     );
 
     if (currentTab === "BUY" && currentSharesTab === "YES") {
-      newNoPool = new Decimal(marketData.noPool).plus(finalAmount);
-      newYesPool = k.div(newNoPool);
-      amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
-    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
       newYesPool = new Decimal(marketData.yesPool).plus(finalAmount);
       newNoPool = k.div(newYesPool);
       amountToBeRecieved = new Decimal(marketData.noPool).minus(newNoPool);
+    } else if (currentTab === "BUY" && currentSharesTab === "NO") {
+      newNoPool = new Decimal(marketData.noPool).plus(finalAmount);
+      newYesPool = k.div(newNoPool);
+      amountToBeRecieved = new Decimal(marketData.yesPool).minus(newYesPool);
     }
 
     return currentTab === "BUY"

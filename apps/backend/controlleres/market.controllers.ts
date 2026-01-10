@@ -7,7 +7,7 @@ import { applyTrade, getIntervalMs } from "../helper";
 const getMarketsController = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 5;
 
     const skip = (page - 1) * limit;
 
@@ -26,7 +26,7 @@ const getMarketsController = async (req: Request, res: Response) => {
       limit,
       markets,
       totalMarkets,
-      totalPages: Math.floor(totalMarkets / limit),
+      totalPages: Math.ceil(totalMarkets / limit),
     });
   } catch (error) {
     res.status(500).json({
@@ -243,9 +243,9 @@ const placeTradeController = async (req: Request, res: Response) => {
 
       if (action === "BUY") {
         if (side === "YES") {
-          newNoPool = market.noPool.plus(finalAmount);
-          newYesPool = k.div(newNoPool);
-          delta = new Decimal(market.yesPool).minus(newYesPool);
+          newYesPool = market.yesPool.plus(finalAmount);
+          newNoPool = k.div(newYesPool);
+          delta = new Decimal(market.noPool).minus(newNoPool);
 
           await tx.position.upsert({
             where: {
@@ -267,9 +267,9 @@ const placeTradeController = async (req: Request, res: Response) => {
             },
           });
         } else {
-          newYesPool = market.yesPool.plus(finalAmount);
-          newNoPool = k.div(newYesPool);
-          delta = new Decimal(market.noPool).minus(newNoPool);
+          newNoPool = market.noPool.plus(finalAmount);
+          newYesPool = k.div(newNoPool);
+          delta = new Decimal(market.yesPool).minus(newYesPool);
           await tx.position.upsert({
             where: {
               userId_marketId: {
