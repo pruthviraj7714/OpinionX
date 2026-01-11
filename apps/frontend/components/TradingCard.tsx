@@ -140,7 +140,7 @@ export function TradingCard({
 
         <div className="rounded-lg bg-zinc-900 border border-zinc-700 p-3 hover:border-zinc-600 transition-colors">
           <p className="text-sm text-zinc-400">
-            Platform fees:{" "}
+            Market fees:{" "}
             <span className="font-semibold text-zinc-100">{platformFees}%</span>
           </p>
         </div>
@@ -153,7 +153,7 @@ export function TradingCard({
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-zinc-400">Platform fees:</span>
+            <span className="text-zinc-400">Market fees:</span>
             <span className="font-semibold text-red-400">
               -${calculateFee()}
             </span>

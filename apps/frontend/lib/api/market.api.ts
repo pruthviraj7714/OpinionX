@@ -11,14 +11,21 @@ export const getMarketInfo = async (marketId: string, token?: string) => {
   return data;
 };
 
-export const getMarketTrades = async (marketId: string, token?: string) => {
-  const { data } = await api.get(`/markets/${marketId}/trades`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+export const getMarketTrades = async (
+  marketId: string,
+  cursor?: string,
+  token?: string
+) => {
+  const { data } = await api.get(
+    `/markets/${marketId}/trades?limit=10&cursor=${cursor}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
-  return data.trades;
+  return data;
 };
 
 export const getProbabilityChartData = async (
@@ -53,15 +60,12 @@ export const getParticipationChartData = async (
 export const checkPayoutEligibility = async (
   marketId: string,
   token?: string
-) : Promise<EligibilityResponse> => {
-  const { data } = await api.get(
-    `/markets/${marketId}/eligibility`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+): Promise<EligibilityResponse> => {
+  const { data } = await api.get(`/markets/${marketId}/eligibility`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   return data;
 };

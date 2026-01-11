@@ -17,7 +17,11 @@ import {
 import ProbabilityChart from "./ProbabilityChart";
 import YesNoDonutChart from "./ParticipationChart";
 import { TradingCard } from "./TradingCard";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+  useQueryClient,
+  useQuery,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 import {
   getUserBalance,
   getUserPosition,
@@ -48,6 +52,9 @@ import {
   Trophy,
   BarChart3,
 } from "lucide-react";
+import { Button } from "./ui/button";
+import { formatDistanceToNow } from "date-fns";
+import { TradesTable } from "./TradesTable";
 
 export default function MarketPageComponent({
   marketId,
@@ -65,6 +72,9 @@ export default function MarketPageComponent({
   );
   const [chartInterval, setChartInterval] = useState("5m");
   const [currentTradesTab, setCurrentTradesTab] = useState<string>("Trades");
+
+  const [page, setPage] = useState(1);
+  const [trades, setTrades] = useState<ITrade[]>([]);
 
   const {
     data: marketData,
@@ -86,24 +96,45 @@ export default function MarketPageComponent({
     queryFn: () => getUserBalance(data?.accessToken),
     enabled: isReady,
   });
+
   const {
-    data: marketTrades = [],
+    data: marketTradesData,
+    fetchNextPage: fetchNextMarketPage,
+    hasNextPage: hasNextMarketPage,
+    isFetchingNextPage: isFetchingNextMarketPage,
     isLoading: marketTradesLoading,
     error: marketTradesError,
-  } = useQuery({
+  } = useInfiniteQuery<{
+    trades: ITrade[];
+    nextCursor?: string | null;
+  }>({
     queryKey: ["marketTrades", marketId],
-    queryFn: () => getMarketTrades(marketId, data?.accessToken),
+    queryFn: ({ pageParam }) =>
+      getMarketTrades(marketId, pageParam as string | undefined, data?.accessToken),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: isReady && currentTradesTab === "Trades",
   });
+
   const {
-    data: userTrades = [],
+    data: userTradesData,
+    fetchNextPage: fetchNextUserPage,
+    hasNextPage: hasNextUserPage,
+    isFetchingNextPage: isFetchingNextUserPage,
     isLoading: userTradesLoading,
     error: userTradesError,
-  } = useQuery({
+  } = useInfiniteQuery<{
+    trades: ITrade[];
+    nextCursor?: string | null;
+  }>({
     queryKey: ["userTrades", marketId],
-    queryFn: () => getUserTrades(marketId, data?.accessToken),
+    queryFn: ({ pageParam }) =>
+      getUserTrades(marketId, pageParam as string | undefined, data?.accessToken),
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: isReady && currentTradesTab === "UserTrades",
   });
+
   const {
     data: probabilityChartData,
     isLoading: probabilityChartDataLoading,
@@ -114,6 +145,7 @@ export default function MarketPageComponent({
       getProbabilityChartData(marketId, chartInterval, data?.accessToken),
     enabled: isReady,
   });
+
   const {
     data: participationChartData,
     isLoading: participationChartDataLoading,
@@ -160,19 +192,16 @@ export default function MarketPageComponent({
       );
       toast.success(res.data.message, { position: "top-center" });
 
-      const newTrade = res.data.trade;
-      queryClient.setQueryData<ITrade[]>(
-        ["marketTrades", marketId],
-        (old = []) => [newTrade, ...old]
-      );
-
-      queryClient.setQueryData<ITrade[]>(
-        ["userTrades", marketId],
-        (old = []) => [newTrade, ...old]
-      );
-      queryClient.invalidateQueries({ queryKey: ["marketInfo", marketId] });
-      queryClient.invalidateQueries({ queryKey: ["position", marketId] });
-      queryClient.invalidateQueries({ queryKey: ["balance"] });
+      await queryClient.invalidateQueries({ 
+        queryKey: ["marketTrades", marketId] 
+      });
+      
+      await queryClient.invalidateQueries({ 
+        queryKey: ["userTrades", marketId] 
+      });
+      await queryClient.invalidateQueries({ queryKey: ["marketInfo", marketId] });
+      await queryClient.invalidateQueries({ queryKey: ["position", marketId] });
+      await queryClient.invalidateQueries({ queryKey: ["balance"] });
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error?.message, {
         position: "top-center",
@@ -360,7 +389,26 @@ export default function MarketPageComponent({
   const expiryDate = new Date(marketData.expiryTime);
 
   const displayedTrades =
-    currentTradesTab === "UserTrades" ? userTrades : marketTrades;
+    currentTradesTab === "Trades"
+      ? (marketTradesData?.pages.flatMap((page) => page.trades) ?? [])
+      : (userTradesData?.pages.flatMap((page) => page.trades) ?? []);
+
+  const isTradesLoading =
+    currentTradesTab === "Trades" ? marketTradesLoading : userTradesLoading;
+
+  const tradesError =
+    currentTradesTab === "Trades" ? marketTradesError : userTradesError;
+
+  const hasNextPage =
+    currentTradesTab === "Trades" ? hasNextMarketPage : hasNextUserPage;
+
+  const isFetchingNextPage =
+    currentTradesTab === "Trades"
+      ? isFetchingNextMarketPage
+      : isFetchingNextUserPage;
+
+  const fetchNextPage =
+    currentTradesTab === "Trades" ? fetchNextMarketPage : fetchNextUserPage;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -668,7 +716,9 @@ export default function MarketPageComponent({
                   </p>
                   <div className="flex items-baseline gap-2">
                     <p className="text-4xl font-bold text-emerald-400">
-                      {position?.yesShares ?? 0}
+                      {new Decimal(position?.yesShares || 0)
+                        .toNumber()
+                        .toFixed(2) ?? 0}
                     </p>
                     <span className="text-sm text-zinc-500">shares</span>
                   </div>
@@ -679,7 +729,9 @@ export default function MarketPageComponent({
                   </p>
                   <div className="flex items-baseline gap-2">
                     <p className="text-4xl font-bold text-red-400">
-                      {position?.noShares ?? 0}
+                      {new Decimal(position?.noShares || 0)
+                        .toNumber()
+                        .toFixed(2) ?? 0}
                     </p>
                     <span className="text-sm text-zinc-500">shares</span>
                   </div>
@@ -745,102 +797,15 @@ export default function MarketPageComponent({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-zinc-800 bg-zinc-800/30">
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Action
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Side
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Amount In
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Amount Out
-                  </TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Time
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {marketTradesLoading || userTradesLoading ? (
-                  <TableRow className="border-zinc-800">
-                    <TableCell colSpan={5} className="py-12 text-center">
-                      <Loader2 className="mx-auto inline-block animate-spin text-zinc-500" />
-                    </TableCell>
-                  </TableRow>
-                ) : marketTradesError || userTradesError ? (
-                  <TableRow className="border-zinc-800">
-                    <TableCell
-                      colSpan={5}
-                      className="py-12 text-center text-sm text-red-400"
-                    >
-                      Failed to load trades
-                    </TableCell>
-                  </TableRow>
-                ) : displayedTrades && displayedTrades.length > 0 ? (
-                  displayedTrades.map((trade: ITrade) => (
-                    <TableRow
-                      key={trade.id}
-                      className="border-zinc-800 hover:bg-zinc-800/30 transition-colors"
-                    >
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${
-                            trade.action === "BUY"
-                              ? "bg-blue-500/20 text-blue-400"
-                              : "bg-orange-500/20 text-orange-400"
-                          }`}
-                        >
-                          {trade.action === "BUY" ? (
-                            <ArrowDownRight className="h-3 w-3" />
-                          ) : (
-                            <ArrowUpRight className="h-3 w-3" />
-                          )}
-                          {trade.action}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`font-bold ${
-                            trade.side === "YES"
-                              ? "text-emerald-400"
-                              : "text-red-400"
-                          }`}
-                        >
-                          {trade.side}
-                        </span>
-                      </TableCell>
-                      <TableCell className="font-semibold text-zinc-100">
-                        ${Number(trade.amountIn).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-semibold text-zinc-100">
-                        ${Number(trade.amountOut).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-sm text-zinc-400">
-                        {new Intl.DateTimeFormat("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        }).format(new Date(trade.createdAt))}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow className="border-zinc-800">
-                    <TableCell colSpan={5} className="py-12 text-center">
-                      <Activity className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
-                      <p className="text-sm text-zinc-500">No trades yet</p>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <div className="overflow-x-auto px-4">
+            <TradesTable
+              displayedTrades={displayedTrades}
+              isLoading={isTradesLoading}
+              fetchNextPage={fetchNextPage}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              isError={tradesError}
+            />
           </div>
         </div>
 

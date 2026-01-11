@@ -30,9 +30,9 @@ export const getUserPosition = async (
   return data.position;
 };
 
-export const getUserTrades = async (marketId: string, token?: string) => {
+export const getUserTrades = async (marketId: string, cursor? : string, token?: string) => {
   const { data } = await api.get<fetchUserTradesResponse>(
-    `/markets/${marketId}/trades/me`,
+    `/markets/${marketId}/trades/me?limit=10&cursor=${cursor}`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -40,7 +40,7 @@ export const getUserTrades = async (marketId: string, token?: string) => {
     }
   );
 
-  return data.trades;
+  return data;
 };
 
 interface IMarket {
@@ -68,6 +68,19 @@ export const fetchMarkets = async (
   token?: string
 ): Promise<PaginatedMarketsResponse> => {
   const { data } = await api.get(`/markets?page=${pageNumber}&limit=5`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data;
+};
+
+
+export const fetchUserProfileAccountOverview = async (
+  token?: string
+) => {
+  const { data } = await api.get(`/auth/me`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

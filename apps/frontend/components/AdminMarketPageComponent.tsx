@@ -573,10 +573,10 @@ export default function AdminMarketPageComponent({
               </span>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto px-4">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 bg-zinc-800/30">
+                <TableRow className="border-zinc-800 hover:bg-zinc-800/60">
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Username
                   </TableHead>
@@ -596,7 +596,7 @@ export default function AdminMarketPageComponent({
                   positions.map((position) => (
                     <TableRow
                       key={position.userId}
-                      className="border-zinc-800 hover:bg-zinc-800/30 transition-colors"
+                      className="border-zinc-800 hover:bg-zinc-800/60 px-6 transition-colors"
                     >
                       <TableCell className="font-semibold text-zinc-100">
                         {position.user.username}
@@ -615,7 +615,7 @@ export default function AdminMarketPageComponent({
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow className="border-zinc-800">
+                  <TableRow className="border-zinc-800 hover:bg-zinc-800/60">
                     <TableCell colSpan={4} className="py-12 text-center">
                       <Users className="h-12 w-12 text-zinc-700 mx-auto mb-3" />
                       <p className="text-sm text-zinc-500">No positions yet</p>
@@ -637,10 +637,10 @@ export default function AdminMarketPageComponent({
               </span>
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto px-4">
             <Table>
               <TableHeader>
-                <TableRow className="border-zinc-800 bg-zinc-800/30">
+                <TableRow className="border-zinc-800 bg-zinc-800/30 hover:bg-zinc-800/60">
                   <TableHead className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Username
                   </TableHead>
@@ -666,7 +666,7 @@ export default function AdminMarketPageComponent({
                   trades.map((trade) => (
                     <TableRow
                       key={trade.id}
-                      className="border-zinc-800 hover:bg-zinc-800/30 transition-colors"
+                      className="border-zinc-800 hover:bg-zinc-800/60 transition-colors"
                     >
                       <TableCell className="font-semibold text-zinc-100">
                         {trade.user.username}
