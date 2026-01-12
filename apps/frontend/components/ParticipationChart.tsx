@@ -53,10 +53,16 @@ export default function YesNoDonutChart({ yesTraders, noTraders }: Props) {
             labelStyle={{
               color: "#e5e7eb",
             }}
-            formatter={(value: number, name: string) => [
-              `${value} ${value > 1 ? 'traders' : 'trader'}`,
-              name,
-            ]}
+            formatter={(value, name) => {
+              if (value == null) {
+                return ["0 traders", name];
+              }
+          
+              return [
+                `${value} ${value === 1 ? "trader" : "traders"}`,
+                name,
+              ];
+            }}
           />
         </PieChart>
       </ResponsiveContainer>

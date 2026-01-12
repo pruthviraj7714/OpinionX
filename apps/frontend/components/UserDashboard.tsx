@@ -1,5 +1,6 @@
 "use client";
 
+import { processMarkets, useMarketFilters } from "@/hooks/useMarketFilters";
 import { fetchMarkets } from "@/lib/api/user.api";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,12 +15,15 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import MarketFilters from "./MarketFilters";
 
 const UserDashboard = () => {
   const { data, status } = useSession();
   const isReady = status === "authenticated";
   const [page, setPage] = useState(1);
+
+  const filters = useMarketFilters();
 
   const {
     data: marketResponse,
@@ -31,6 +35,13 @@ const UserDashboard = () => {
     queryFn: () => fetchMarkets(page, data?.accessToken),
     enabled: isReady,
   });
+
+  const markets = marketResponse?.markets ?? [];
+  const totalPages = marketResponse?.totalPages ?? 1;
+
+  const processedMarkets = useMemo(() => {
+    return processMarkets(markets, filters);
+  }, [markets, filters]);
 
   if (isLoading) {
     return (
@@ -81,22 +92,32 @@ const UserDashboard = () => {
     }
   };
 
-  const markets = marketResponse?.markets ?? [];
-  const totalPages = marketResponse?.totalPages ?? 1;
   return (
     <div className="min-h-screen bg-zinc-950 px-8 py-10">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl text-zinc-100 font-bold">Open Markets</h1>
       </div>
 
-      {isLoading && <p className="text-gray-500">Loading markets...</p>}
+      <MarketFilters {...filters} />
 
-      {!isLoading && markets.length === 0 && (
+      <div className="py-4 text-sm text-zinc-400">
+        Showing {processedMarkets.length} of {markets.length} markets
+        {filters.hasActiveFilters && (
+          <button
+            onClick={filters.onReset}
+            className="ml-2 text-purple-400 hover:text-purple-300"
+          >
+            Clear all filters
+          </button>
+        )}
+      </div>
+
+      {!isLoading && processedMarkets.length === 0 && (
         <p className="text-gray-500">No markets found.</p>
       )}
 
       <div className="grid gap-5">
-        {markets.map((market) => (
+        {processedMarkets.map((market) => (
           <Link
             href={`/market/${market.id}`}
             key={market.id}

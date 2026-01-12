@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { CreateMarketSchema } from "@repo/shared";
 import { useState } from "react";
@@ -20,7 +20,8 @@ import {
   Sparkles,
 } from "lucide-react";
 
-type FormData = z.infer<typeof CreateMarketSchema>;
+type CreateMarketInput = z.input<typeof CreateMarketSchema>;
+type CreateMarketOutput = z.output<typeof CreateMarketSchema>;
 
 export default function CreateMarketPage() {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -32,11 +33,11 @@ export default function CreateMarketPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<CreateMarketInput>({
     resolver: zodResolver(CreateMarketSchema),
   });
 
-  const onSubmit = async (formData: FormData) => {
+  const onSubmit: SubmitHandler<CreateMarketInput> = async (formData) => {
     if (status !== "authenticated") return;
 
     setLoading(true);

@@ -1,5 +1,6 @@
 "use client";
 
+import { processMarkets, useMarketFilters } from "@/hooks/useMarketFilters";
 import { fetchMarketsForAdmin } from "@/lib/api/admin.api";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,12 +16,15 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import MarketFilters from "./MarketFilters";
 
 const AdminDashboard = () => {
   const { data, status } = useSession();
   const isReady = status === "authenticated";
   const [page, setPage] = useState(1);
+
+  const filters = useMarketFilters();
 
   const {
     data: marketResponse,
@@ -32,6 +36,13 @@ const AdminDashboard = () => {
     queryFn: () => fetchMarketsForAdmin(page, data?.accessToken),
     enabled: isReady,
   });
+
+  const markets = marketResponse?.markets ?? [];
+  const totalPages = marketResponse?.totalPages ?? 1;
+
+  const processedMarkets = useMemo(() => {
+    return processMarkets(markets, filters);
+  }, [markets, filters]);
 
   if (isLoading) {
     return (
@@ -82,9 +93,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const markets = marketResponse?.markets ?? [];
-  const totalPages = marketResponse?.totalPages ?? 1;
-
   return (
     <div className="min-h-screen bg-zinc-950 px-8 py-10">
       <div className="flex items-center justify-between mb-10">
@@ -105,12 +113,26 @@ const AdminDashboard = () => {
         </Link>
       </div>
 
-      {markets.length === 0 && (
+      <MarketFilters {...filters} />
+
+      <div className="py-4 text-sm text-zinc-400">
+        Showing {processedMarkets.length} of {markets.length} markets
+        {filters.hasActiveFilters && (
+          <button
+            onClick={filters.onReset}
+            className="ml-2 text-purple-400 hover:text-purple-300"
+          >
+            Clear all filters
+          </button>
+        )}
+      </div>
+
+      {processedMarkets.length === 0 && (
         <div className="text-center py-20 text-zinc-500">No markets found.</div>
       )}
 
       <div className="grid gap-5">
-        {markets.map((market) => (
+        {processedMarkets.map((market) => (
           <Link
             href={`/market/${market.id}`}
             key={market.id}
