@@ -14,7 +14,7 @@ Trade on outcomes, track positions, and visualize probability movements through 
 
 > High-level architecture diagram
 
-[Architecture](./images/architecture.png)
+![Architecture](./images/architecture.png)
 
 ---
 
@@ -98,16 +98,16 @@ Trade on outcomes, track positions, and visualize probability movements through 
 ## 📸 Screenshots
 
 ### 🏠 Home / Market List
-[Home Page](./images/home.png)
+![Home Page](./images/home.png)
 
 ### 📊 Market Details & Chart
-[Market Details And Chart](./images/market-details.png)
+![Market Details And Chart](./images/market-details.png)
 
 ### 📊 Trading
-[Trading](./images/trading-and-chart.png)
+![Trading](./images/trading-and-chart.png)
 
 ### 👤 Admin Profile Page
-[Admin Profile Page](./images/admin-profile-page.png)
+![Admin Profile Page](./images/admin-profile-page.png)
 
 ---
 
