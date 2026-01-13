@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireUser } from "../middlewares/user.middleware";
 import {
+  claimPayoutByIdController,
   fetchUserBalanceController,
   fetchUserPositionController,
   fetchUserProfieController,
@@ -22,6 +23,13 @@ userRouter.get(
   requireAuth,
   requireUser,
   fetchUserBalanceController
+);
+
+userRouter.post(
+  "/claim-payout",
+  requireAuth,
+  requireUser,
+  claimPayoutByIdController
 );
 
 export default userRouter;

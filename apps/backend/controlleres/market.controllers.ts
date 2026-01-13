@@ -721,8 +721,6 @@ const claimPayoutController = async (req: Request, res: Response) => {
           claimedAt: new Date(),
           payoutAmount,
           payoutStatus: "CLAIMED",
-          yesShares: 0,
-          noShares: 0,
         },
       });
       await tx.user.update({

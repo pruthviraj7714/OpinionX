@@ -142,6 +142,10 @@ const calculatePayoutAmount = (
     return new Decimal(0);
   }
 
+  if(new Decimal(position.payoutAmount || 0).gt(0)) {
+    return position.payoutAmount;
+  }
+
   if (market.resolvedOutcome === "YES") {
     return new Decimal(position.yesShares);
   } else {
@@ -244,10 +248,10 @@ const fetchUserAccountOverviewInfoController = async (
       .map((pos) => {
         const payoutAmount = calculatePayoutAmount(pos, pos.market);
         const won =
-          (pos.market.resolvedOutcome === "YES" &&
+          ((pos.market.resolvedOutcome === "YES" &&
             new Decimal(pos.yesShares).greaterThan(0)) ||
           (pos.market.resolvedOutcome === "NO" &&
-            new Decimal(pos.noShares).greaterThan(0));
+            new Decimal(pos.noShares).greaterThan(0))) || pos.payoutStatus === "CLAIMED";
 
         return {
           id: pos.id,

@@ -20,9 +20,13 @@ import {
   Mail,
   ArrowUpRight,
   ArrowDownRight,
+  DollarSign,
 } from "lucide-react";
 import { fetchUserProfileAccountOverview } from "@/lib/api/user.api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+import { BACKEND_URL } from "@/lib/config";
+import { toast } from "sonner";
 
 interface ITrade {
   id: string;
@@ -94,12 +98,24 @@ export default function UserProfilePage({ authToken }: { authToken: string }) {
     enabled: !!authToken,
   });
 
+  const queryClient = useQueryClient();
+
   const handleClaimPayout = async (payoutId: string) => {
     setClaimingId(payoutId);
-    setTimeout(() => {
-      alert(`Claimed payout for position ${payoutId}`);
+
+    try {
+      const res = await axios.post(
+        `${BACKEND_URL}/user/claim-payout?payoutId=${payoutId}`,
+        {},
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      toast.success(res.data.message, { position: "top-center" });
+      await queryClient.invalidateQueries({ queryKey: ["accountOverview"] });
+    } catch (error: any) {
+      toast.error(error.response.data.message || error.message);
+    } finally {
       setClaimingId(null);
-    }, 1000);
+    }
   };
 
   if (profileDataLoading) {
@@ -271,7 +287,7 @@ export default function UserProfilePage({ authToken }: { authToken: string }) {
               </div>
               <div className="p-6">
                 <div className="space-y-3">
-                  {profileData.payouts.claimable.map((payout : IPayout) => (
+                  {profileData.payouts.claimable.map((payout: IPayout) => (
                     <div
                       key={payout.id}
                       className="flex items-center justify-between p-4 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-emerald-600/50 transition-all"
@@ -308,7 +324,7 @@ export default function UserProfilePage({ authToken }: { authToken: string }) {
                         <button
                           onClick={() => handleClaimPayout(payout.id)}
                           disabled={claimingId === payout.id}
-                          className="px-6 py-3 bg-linear-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="px-6 py-3 bg-linear-to-r cursor-pointer from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                           {claimingId === payout.id ? (
                             <>
@@ -542,6 +558,13 @@ export default function UserProfilePage({ authToken }: { authToken: string }) {
                               ).toLocaleDateString()}
                             </span>
                           </div>
+                          {position.won && (
+                          <div className="flex items-center px-3 py-2 bg-emerald-500/20 rounded-lg">
+                            <span className="text-sm font-bold text-emerald-400">
+                              Amount Claimed : {position.payoutAmount}
+                            </span>
+                            <DollarSign className="h-4 w-4 text-emerald-400" />
+                          </div>)}
                         </div>
                       </div>
                       <div className="flex items-center gap-4">

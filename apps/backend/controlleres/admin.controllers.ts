@@ -421,13 +421,14 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
 
     const {
       admin,
-      markets,
+      marketsCount,
       pendingResolutions,
       thisMonthsRevenue,
       todaysRevenue,
       total,
       totalUsers,
       volume,
+      recentMarkets,
     } = await prisma.$transaction(async (tx) => {
       const admin = await tx.user.findUnique({ where: { id: adminId } });
 
@@ -441,7 +442,23 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
         _sum: { amountIn: true },
       });
 
-      const markets = await tx.market.findMany({});
+      const open = await tx.market.count({
+        where: { userId: adminId, status: "OPEN" },
+      });
+      const closed = await tx.market.count({
+        where: { userId: adminId, status: "CLOSED" },
+      });
+      const resolved = await tx.market.count({
+        where: { userId: adminId, status: "RESOLVED" },
+      });
+
+      const recentMarkets = await tx.market.findMany({
+        where: { userId: adminId },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5,
+      });
 
       const pendingResolutions = await tx.market.findMany({
         where: {
@@ -456,7 +473,7 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
             lte: endOfToday,
           },
         },
-        _sum : {amount : true}
+        _sum: { amount: true },
       });
 
       const thisMonthsRevenue = await tx.platformFee.aggregate({
@@ -466,7 +483,7 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
             lte: endOfMonth,
           },
         },
-        _sum : {amount : true}
+        _sum: { amount: true },
       });
       return {
         admin,
@@ -474,7 +491,12 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
         totalUsers,
         total,
         volume,
-        markets,
+        recentMarkets,
+        marketsCount: {
+          open,
+          resolved,
+          closed,
+        },
         todaysRevenue,
         thisMonthsRevenue,
       };
@@ -500,12 +522,13 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
         thisMonth: thisMonthsRevenue._sum.amount || 0,
         allTime: total._sum.amount || 0,
       },
-      allMarkets: markets,
+      marketsCount,
+      recentMarkets,
       pendingResolutions: pendingResolutions,
     });
   } catch (error) {
     console.log(error);
-    
+
     res.status(500).json({
       message: "Internal Server Error",
     });

@@ -1,135 +1,168 @@
-# Turborepo starter
+# OpinionX 🧠📈 : Prediction Market Platform
 
-This Turborepo starter is maintained by the Turborepo core team.
+---
 
-## Using this example
+## 📖 Overview
 
-Run the following command:
+**OpinionX** is a full-stack prediction market platform where opinions meet probability. Users can trade **YES / NO shares** on real-world or hypothetical events, with prices dynamically determined using an **Automated Market Maker (AMM)** that reflects collective belief in real time.
 
-```sh
-npx create-turbo@latest
+Trade on outcomes, track positions, and visualize probability movements through interactive charts—all in a sleek, modern interface.
+
+---
+
+## 🧱 System Architecture
+
+> High-level architecture diagram
+
+[Architecture](./images/architecture.png)
+
+---
+
+## 🚀 Features
+
+### 🔮 Prediction Markets
+- Create and participate in opinion-based markets
+- Trade **YES** / **NO** outcomes on future events
+- Time-bound markets with automatic closing mechanisms
+
+### 💱 AMM-Based Trading
+- **Constant Product Market Maker** (`YES_POOL × NO_POOL = k`)
+- Real-time price & probability calculation
+- Slippage-aware buy & sell mechanics
+- Dynamic liquidity adjustments
+
+### 📊 Real-Time Insights
+- Probability history charts with interval-based tracking
+- Trader participation distribution (YES vs NO)
+- Market liquidity visualization
+- Live market statistics
+
+### 👤 User System
+- Secure authentication powered by **NextAuth**
+- Personal balance management
+- Individual market positions tracking (YES / NO shares)
+
+### 🧾 Trades & Positions
+- Market-wide trades feed
+- User-specific trade history
+- Live position tracking across all markets
+
+### 🏁 Market Resolution & Payouts
+- Admin-controlled market resolution
+- Automatic payout eligibility checks
+- One-click payout claiming for eligible users
+
+---
+
+## 🧠 How OpinionX Works
+
+### 1️⃣ Market Creation
+- Each market starts with equal YES and NO liquidity
+- Initial probability is derived from pool ratios
+
+### 2️⃣ Trading
+- Users buy or sell YES/NO shares
+- AMM adjusts pools to maintain constant product
+- Prices update instantly based on demand
+
+### 3️⃣ Market Close
+- Trading stops at expiry
+- Admin resolves the final outcome
+
+### 4️⃣ Payout
+- Winning side holders can claim payouts
+- Losers receive no payout
+
+---
+
+## 🛠 Tech Stack
+
+### Frontend
+- **Next.js** (App Router)
+- **TypeScript**
+- **Tailwind CSS**
+- **TanStack React Query**
+- **Recharts**
+- **NextAuth**
+
+### Backend
+- **Bun**
+- **Express**
+- **Prisma ORM**
+- **PostgreSQL**
+- **JWT Authentication**
+- **REST APIs**
+
+---
+
+## 📸 Screenshots
+
+### 🏠 Home / Market List
+[Home Page](./images/home.png)
+
+### 📊 Market Details & Chart
+[Market Details And Chart](./images/market-details.png)
+
+### 📊 Trading
+[Trading](./images/trading-and-chart.png)
+
+### 👤 Admin Profile Page
+[Admin Profile Page](./images/admin-profile-page.png)
+
+---
+
+## 🎯 Core API Endpoints
+
+### Markets
+- `GET /api/markets` - List all markets
+- `GET /api/markets/:id` - Get market details
+- `POST /api/markets` - Create a new market (Admin)
+- `POST /api/markets/:id/resolve` - Resolve market outcome (Admin)
+
+### Trading
+- `POST /api/markets/:id/buy` - Buy YES/NO shares
+- `POST /api/markets/:id/sell` - Sell YES/NO shares
+
+### User & Positions
+- `GET /api/user/positions` - Get user's current positions
+- `GET /api/user/trades` - Fetch trade history
+- `POST /api/payout/claim` - Claim payout after market resolution
+
+---
+
+## 📊 Database Schema (Simplified)
+
+- **User**: Authentication & balance
+- **Market**: Event details, pools, state
+- **Trade**: Buy/sell transactions
+- **Position**: User holdings per market
+- **Platform Fees**: Platform Fees for admin
+
+---
+
+## 🧮 AMM Formula
+
+```
+k = YES_POOL × NO_POOL
+price_yes = YES_POOL / (YES_POOL + NO_POOL)
+probability_yes = price_yes × 100
 ```
 
-## What's inside?
+When a user buys YES shares, the YES pool decreases and NO pool increases, raising the YES price.
 
-This Turborepo includes the following packages/apps:
+---
 
-### Apps and Packages
+## 🤝 Contributing
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+Contributions are welcome!  
+Feel free to open issues or submit pull requests.
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+---
 
-### Utilities
+## 📜 License
 
-This Turborepo has some additional tools already setup for you:
+MIT License
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+---
 
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
-```
-
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+**Built with ❤️ by the Pruthviraj**

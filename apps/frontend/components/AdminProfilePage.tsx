@@ -40,7 +40,11 @@ interface IMarket {
   status: "OPEN" | "CLOSED" | "RESOLVED";
 }
 
-export default function AdminProfilePage({ authToken }: { authToken?: string }) {
+export default function AdminProfilePage({
+  authToken,
+}: {
+  authToken?: string;
+}) {
   const {
     data: adminData,
     isLoading,
@@ -53,15 +57,9 @@ export default function AdminProfilePage({ authToken }: { authToken?: string }) 
 
   const router = useRouter();
 
-  const openMarkets =
-    adminData?.allMarkets?.filter((m: IMarket) => m.status === "OPEN").length ||
-    0;
-  const closedMarkets =
-    adminData?.allMarkets?.filter((m: IMarket) => m.status === "CLOSED")
-      .length || 0;
-  const resolvedMarkets =
-    adminData?.allMarkets?.filter((m: IMarket) => m.status === "RESOLVED")
-      .length || 0;
+  const openMarkets = adminData?.marketsCount.open || 0;
+  const closedMarkets = adminData?.marketsCount.closed || 0;
+  const resolvedMarkets = adminData?.marketsCount.resolved || 0;
 
   const handleViewMarket = (status: "OPEN" | "CLOSED" | "RESOLVED") => {
     router.push(`/dashboard?status=${status}`);
@@ -70,8 +68,6 @@ export default function AdminProfilePage({ authToken }: { authToken?: string }) 
   const handleRedirectToMarketPage = (marketId: string) => {
     router.push(`/market/${marketId}`);
   };
-
-  const handleResolveMarket = (marketId: string) => {};
 
   if (isLoading) {
     return (
@@ -187,7 +183,7 @@ export default function AdminProfilePage({ authToken }: { authToken?: string }) 
             </p>
             <div className="flex items-baseline gap-2">
               <p className="text-3xl font-bold text-zinc-100">
-                {adminData.allMarkets?.length || 0}
+                {(openMarkets + closedMarkets + resolvedMarkets)|| 0}
               </p>
               <span className="text-sm text-zinc-500">markets</span>
             </div>
@@ -416,18 +412,20 @@ export default function AdminProfilePage({ authToken }: { authToken?: string }) 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-purple-400" />
-                <h2 className="text-lg font-bold text-zinc-100">All Markets</h2>
+                <h2 className="text-lg font-bold text-zinc-100">
+                  Recently Created Markets
+                </h2>
               </div>
               <span className="text-sm text-zinc-500">
-                {adminData.allMarkets?.length || 0} total
+                recent {adminData.recentMarkets?.length || 0} markets 
               </span>
             </div>
           </div>
 
           <div className="p-6">
-            {adminData.allMarkets && adminData.allMarkets.length > 0 ? (
+            {adminData.recentMarkets && adminData.recentMarkets.length > 0 ? (
               <div className="space-y-3">
-                {adminData.allMarkets.slice(0, 5).map((market: IMarket) => (
+                {adminData.recentMarkets.slice(0, 5).map((market: IMarket) => (
                   <div
                     key={market.id}
                     className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg bg-zinc-800/50 border border-zinc-700/50 hover:border-zinc-600 transition-all gap-4"
@@ -460,17 +458,13 @@ export default function AdminProfilePage({ authToken }: { authToken?: string }) 
                       </div>
                       <div className="flex items-center gap-4 text-sm text-zinc-400">
                         <div className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          <span>{market.noOfTraders} traders</span>
-                        </div>
-                        <div className="flex items-center gap-1">
                           <DollarSign className="h-3 w-3" />
                           <span>
-                          {new Decimal(market.yesPool)
-                                .plus(new Decimal(market.noPool))
-                                .toNumber()
-                                .toFixed(2)
-                                .toLocaleString()}{" "}
+                            {new Decimal(market.yesPool)
+                              .plus(new Decimal(market.noPool))
+                              .toNumber()
+                              .toFixed(2)
+                              .toLocaleString()}{" "}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -478,6 +472,13 @@ export default function AdminProfilePage({ authToken }: { authToken?: string }) 
                           <span>
                             Created{" "}
                             {new Date(market.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          <span>
+                            Expired:{" "}
+                            {new Date(market.expiryTime).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
