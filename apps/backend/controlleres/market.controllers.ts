@@ -4,6 +4,14 @@ import type { Request, Response } from "express";
 import { Decimal } from "../../../packages/db/generated/prisma/internal/prismaNamespace";
 import { applyTrade, getIntervalMs } from "../helper";
 import type { Market } from "../../../packages/db/generated/prisma/client";
+import {
+  calculateBuyTrade,
+  calculatePriceImpact,
+  calculateSellTrade,
+  MAX_PRICE_IMPACT,
+  MIN_POOL,
+  type TradeResult,
+} from "../lib/amm";
 
 const getMarketsController = async (req: Request, res: Response) => {
   try {
@@ -16,7 +24,7 @@ const getMarketsController = async (req: Request, res: Response) => {
       skip,
       take: limit,
       orderBy: {
-        createdAt: "asc",
+        createdAt: "desc",
       },
     });
 
@@ -176,22 +184,6 @@ const getUserMarketTradesController = async (req: Request, res: Response) => {
   }
 };
 
-const calculateFinalAmount = (amount: Decimal, feePercent: Decimal) => {
-  const fees = amount.mul(feePercent).div(100);
-  return {
-    finalAmount: amount.minus(fees),
-    fees,
-  };
-};
-
-const calculateFinalAmountForSell = (amount: Decimal, feePercent: Decimal) => {
-  const fees = amount.mul(feePercent).div(100);
-  return {
-    finalAmountAfterFees: amount.minus(fees),
-    fees,
-  };
-};
-
 const placeTradeController = async (req: Request, res: Response) => {
   const { success, data, error } = PlaceTradeSchema.safeParse(req.body);
 
@@ -209,252 +201,220 @@ const placeTradeController = async (req: Request, res: Response) => {
   const userId = req.user?.id!;
 
   try {
-    let newYesPool;
-    let newNoPool;
-    let delta;
-    let finalAmountAfter;
-    let finalFeeAmount;
-    const { trade, mkt, userData } = await prisma.$transaction(async (tx) => {
-      const [lockedMarket] = await tx.$queryRaw<
-        Market[]
-      >`SELECT * FROM "Market" WHERE id = ${marketId} FOR UPDATE`;
+    const { trade, market, userData } = await prisma.$transaction(
+      async (tx) => {
+        const [lockedMarket] = await tx.$queryRaw<
+          Market[]
+        >`SELECT * FROM "Market" WHERE id = ${marketId} FOR UPDATE`;
 
-      if (!lockedMarket) {
-        throw new Error("Market Not found");
-      }
-
-      if (lockedMarket.status === "CLOSED") {
-        throw new Error("Market is closed");
-      }
-
-      const [user] = await tx.$queryRaw<
-        { id: string; balance: Decimal }[]
-      >`SELECT "id", "balance" FROM "User" where "id" = ${userId} FOR UPDATE`;
-
-      if (!user) {
-        throw new Error("User not found");
-      }
-      if (action === "BUY" && user.balance.lt(amount)) {
-        throw new Error("Insufficient balance");
-      }
-
-      if (action === "SELL") {
-        const [position] = await tx.$queryRaw<
-          { id: string; yesShares: Decimal; noShares: Decimal }[]
-        >`SELECT * FROM "Position" WHERE "userId" = ${userId} AND "marketId" = ${marketId} FOR UPDATE`;
-
-        if (!position) {
-          throw new Error("Position not found");
+        if (!lockedMarket) {
+          throw new Error("Market Not found");
         }
 
-        const sharesToSell: Decimal =
-          side === "YES" ? position.yesShares : position.noShares;
-
-        if (sharesToSell.lt(amount)) {
-          throw new Error("Insufficient shares");
+        if (lockedMarket.status === "CLOSED") {
+          throw new Error("Market is closed");
         }
-      }
 
-      const k = lockedMarket.yesPool.mul(lockedMarket.noPool);
+        if (Date.now() > lockedMarket.expiryTime.getTime()) {
+          throw new Error("Market is closed");
+        }
 
-      const { finalAmount, fees } = calculateFinalAmount(
-        amount,
-        lockedMarket.feePercent,
-      );
+        const [user] = await tx.$queryRaw<
+          { id: string; balance: Decimal }[]
+        >`SELECT "id", "balance" FROM "User" where "id" = ${userId} FOR UPDATE`;
 
-      finalFeeAmount = fees;
+        if (!user) {
+          throw new Error("User not found");
+        }
+        if (action === "BUY" && user.balance.lt(amount)) {
+          throw new Error("Insufficient balance");
+        }
 
-      if (action === "BUY") {
-        if (side === "YES") {
-          newYesPool = lockedMarket.yesPool.plus(finalAmount);
-          newNoPool = k.div(newYesPool);
-          delta = new Decimal(lockedMarket.noPool).minus(newNoPool);
+        if (action === "SELL") {
+          const [position] = await tx.$queryRaw<
+            { id: string; yesShares: Decimal; noShares: Decimal }[]
+          >`SELECT * FROM "Position" WHERE "userId" = ${userId} AND "marketId" = ${marketId} FOR UPDATE`;
 
-          await tx.position.upsert({
-            where: {
-              userId_marketId: {
-                userId,
-                marketId,
-              },
-            },
-            create: {
-              userId,
-              marketId,
-              yesShares: side === "YES" ? delta : new Decimal(0),
-              noShares: new Decimal(0),
-            },
-            update: {
-              yesShares: {
-                increment: delta,
-              },
-            },
-          });
+          if (!position) {
+            throw new Error("Position not found");
+          }
+
+          const sharesToSell: Decimal =
+            side === "YES" ? position.yesShares : position.noShares;
+
+          if (sharesToSell.lt(amount)) {
+            throw new Error("Insufficient shares");
+          }
+        }
+
+        let tradeResult: TradeResult;
+        let sharesReceived: Decimal | undefined;
+        let usdtReceived: Decimal | undefined;
+
+        const totalLiquidity = lockedMarket.yesPool.plus(lockedMarket.noPool);
+
+        if (action === "BUY" && amount.gt(totalLiquidity.mul(0.2))) {
+          throw new Error("Trade exceeds max allowed size");
+        }
+
+        if (action === "SELL" && amount.gt(lockedMarket.yesPool.mul(0.2))) {
+          throw new Error("Trade exceeds max allowed size");
+        }
+
+        if (action === "BUY") {
+          tradeResult = calculateBuyTrade(
+            side,
+            amount,
+            lockedMarket.yesPool,
+            lockedMarket.noPool,
+            lockedMarket.feePercent,
+          );
+
+          sharesReceived = tradeResult.amountOut;
         } else {
-          newNoPool = lockedMarket.noPool.plus(finalAmount);
-          newYesPool = k.div(newNoPool);
-          delta = new Decimal(lockedMarket.yesPool).minus(newYesPool);
-          await tx.position.upsert({
-            where: {
-              userId_marketId: {
-                userId,
-                marketId,
-              },
-            },
-            create: {
+          tradeResult = calculateSellTrade(
+            side,
+            amount,
+            lockedMarket.yesPool,
+            lockedMarket.noPool,
+            lockedMarket.feePercent,
+          );
+
+          usdtReceived = tradeResult.amountOut;
+        }
+
+        if (
+          tradeResult.newYesPool.lte(MIN_POOL) ||
+          tradeResult.newNoPool.lte(MIN_POOL)
+        ) {
+          throw new Error("Trade too large");
+        }
+
+        const priceImpact = calculatePriceImpact(
+          lockedMarket.yesPool,
+          lockedMarket.noPool,
+          tradeResult.newYesPool,
+          tradeResult.newNoPool,
+        );
+
+        if (priceImpact.gt(MAX_PRICE_IMPACT)) {
+          throw new Error("Price Impact too high");
+        }
+
+        const position = await tx.position.upsert({
+          where: {
+            userId_marketId: {
               userId,
               marketId,
-              yesShares: new Decimal(0),
-              noShares: delta,
             },
-            update: {
-              noShares: {
-                increment: delta,
-              },
-            },
-          });
-        }
-        await tx.user.update({
+          },
+          create: {
+            userId,
+            marketId,
+            yesShares:
+              action === "BUY" && side === "YES"
+                ? sharesReceived
+                : new Decimal(0),
+            noShares:
+              action === "BUY" && side === "NO"
+                ? sharesReceived
+                : new Decimal(0),
+          },
+          update: {
+            yesShares:
+              side === "YES"
+                ? action === "BUY"
+                  ? { increment: sharesReceived }
+                  : { decrement: amount }
+                : undefined,
+
+            noShares:
+              side === "NO"
+                ? action === "BUY"
+                  ? { increment: sharesReceived }
+                  : { decrement: amount }
+                : undefined,
+          },
+        });
+
+        const trade = await tx.trade.create({
+          data: {
+            amountIn: tradeResult.amountIn,
+            side,
+            marketId,
+            action,
+            userId,
+            amountOut: tradeResult.amountOut,
+            price: tradeResult.price,
+          },
+        });
+
+        await tx.platformFee.create({
+          data: {
+            amount: tradeResult.fees,
+            marketId,
+            tradeId: trade.id,
+          },
+        });
+
+        const market = await tx.market.update({
+          where: {
+            id: marketId,
+          },
+          data: {
+            yesPool: tradeResult.newYesPool,
+            noPool: tradeResult.newNoPool,
+          },
+        });
+
+        const userData = await tx.user.update({
           where: {
             id: userId,
           },
-          data: {
-            balance: {
-              decrement: amount,
-            },
-          },
-        });
-      } else {
-        if (side === "YES") {
-          newYesPool = lockedMarket.yesPool.plus(amount);
-          newNoPool = k.div(newYesPool);
-          delta = lockedMarket.noPool.minus(newNoPool);
-
-          const { finalAmountAfterFees, fees } = calculateFinalAmountForSell(
-            delta,
-            lockedMarket.feePercent,
-          );
-          finalAmountAfter = finalAmountAfterFees;
-          finalFeeAmount = fees;
-          await tx.position.upsert({
-            where: {
-              userId_marketId: {
-                userId,
-                marketId,
-              },
-            },
-            create: {
-              userId,
-              marketId,
-              yesShares: new Decimal(0),
-              noShares: new Decimal(0),
-            },
-            update: {
-              yesShares: {
-                decrement: amount,
-              },
-            },
-          });
-        } else {
-          newNoPool = lockedMarket.noPool.plus(amount);
-          newYesPool = k.div(newNoPool);
-          delta = lockedMarket.yesPool.minus(newYesPool);
-
-          const { finalAmountAfterFees, fees } = calculateFinalAmountForSell(
-            delta,
-            lockedMarket.feePercent,
-          );
-          finalAmountAfter = finalAmountAfterFees;
-          finalFeeAmount = fees;
-
-          await tx.position.upsert({
-            where: {
-              userId_marketId: {
-                userId,
-                marketId,
-              },
-            },
-            create: {
-              userId,
-              marketId,
-              yesShares: new Decimal(0),
-              noShares: new Decimal(0),
-            },
-            update: {
-              noShares: {
-                decrement: amount,
-              },
-            },
-          });
-        }
-
-        await tx.user.update({
-          where: {
-            id: userId,
+          select: {
+            balance: true,
+            username: true,
+            email: true,
           },
           data: {
-            balance: {
-              increment: finalAmountAfter,
-            },
+            balance:
+              action === "BUY"
+                ? { decrement: amount }
+                : { increment: usdtReceived },
           },
         });
-      }
 
-      const trade = await tx.trade.create({
-        data: {
-          amountIn: action === "BUY" ? finalAmount : amount,
-          side,
-          marketId,
-          action,
-          userId,
-          amountOut: action === "BUY" ? delta : finalAmountAfter!,
-          price: amount.div(delta),
-        },
-      });
-
-      await tx.platformFee.create({
-        data: {
-          amount: finalFeeAmount,
-          marketId,
-          tradeId: trade.id,
-        },
-      });
-
-      const mkt = await tx.market.update({
-        where: {
-          id: marketId,
-        },
-        data: {
-          yesPool: newYesPool,
-          noPool: newNoPool,
-        },
-      });
-
-      const userData = await tx.user.findFirst({
-        where: {
-          id: userId,
-        },
-        select: {
-          balance: true,
-          username: true,
-          email: true,
-        },
-      });
-
-      return {
-        trade,
-        mkt,
-        userData,
-      };
-    });
+        return {
+          trade,
+          market,
+          userData,
+          position,
+        };
+      },
+    );
 
     res.status(200).json({
       message: "Trade executed succssfully",
       trade,
-      market: mkt,
+      market,
       user: userData,
     });
   } catch (error: any) {
     console.log(error);
+
+    if (error.message.includes("Trade too large")) {
+      res.status(400).json({
+        message: "Trade too large",
+      });
+      return;
+    }
+
+    if (error.message.includes("Price Impact too high")) {
+      res.status(400).json({
+        message: "Price Impact too high",
+      });
+      return;
+    }
 
     if (error.message.includes("Insufficient balance")) {
       res.status(400).json({

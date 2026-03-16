@@ -108,7 +108,7 @@ const createMarketController = async (req: Request, res: Response) => {
       {
         delay,
         jobId: market.id,
-      }
+      },
     );
 
     res.status(201).json({
@@ -137,7 +137,7 @@ const fetchAdminMarketsController = async (req: Request, res: Response) => {
       skip,
       take: limit,
       orderBy: {
-        createdAt: "asc",
+        createdAt: "desc",
       },
     });
 
@@ -161,7 +161,7 @@ const fetchAdminMarketsController = async (req: Request, res: Response) => {
 
 const fetchMarketPositionsAndTradesController = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const userId = req.user?.id!;
@@ -251,7 +251,7 @@ const fetchMarketByIdController = async (req: Request, res: Response) => {
     const noProbability = new Decimal(1).minus(yesProbability);
 
     const liquidity = new Decimal(2).mul(
-      Decimal.sqrt(market.yesPool.mul(market.noPool))
+      Decimal.sqrt(market.yesPool.mul(market.noPool)),
     );
 
     const avgTradeSize = await prisma.trade.aggregate({
@@ -406,7 +406,7 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
       0,
       0,
       0,
-      0
+      0,
     );
 
     const endOfMonth = new Date(
@@ -416,7 +416,7 @@ const getAdminProfileDataController = async (req: Request, res: Response) => {
       23,
       59,
       59,
-      999
+      999,
     );
 
     const {

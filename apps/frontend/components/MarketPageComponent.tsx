@@ -68,7 +68,7 @@ export default function MarketPageComponent({
   const [currentSharesTab, setCurrentSharesTab] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState<string>("");
   const [amountToReceive, setamountToReceive] = useState<Decimal>(
-    new Decimal(0)
+    new Decimal(0),
   );
   const [chartInterval, setChartInterval] = useState("5m");
   const [currentTradesTab, setCurrentTradesTab] = useState<string>("Trades");
@@ -110,7 +110,11 @@ export default function MarketPageComponent({
   }>({
     queryKey: ["marketTrades", marketId],
     queryFn: ({ pageParam }) =>
-      getMarketTrades(marketId, pageParam as string | undefined, data?.accessToken),
+      getMarketTrades(
+        marketId,
+        pageParam as string | undefined,
+        data?.accessToken,
+      ),
     initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: isReady && currentTradesTab === "Trades",
@@ -129,7 +133,11 @@ export default function MarketPageComponent({
   }>({
     queryKey: ["userTrades", marketId],
     queryFn: ({ pageParam }) =>
-      getUserTrades(marketId, pageParam as string | undefined, data?.accessToken),
+      getUserTrades(
+        marketId,
+        pageParam as string | undefined,
+        data?.accessToken,
+      ),
     initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: isReady && currentTradesTab === "UserTrades",
@@ -188,18 +196,20 @@ export default function MarketPageComponent({
           headers: {
             Authorization: `Bearer ${data?.accessToken}`,
           },
-        }
+        },
       );
       toast.success(res.data.message, { position: "top-center" });
 
-      await queryClient.invalidateQueries({ 
-        queryKey: ["marketTrades", marketId] 
+      await queryClient.invalidateQueries({
+        queryKey: ["marketTrades", marketId],
       });
-      
-      await queryClient.invalidateQueries({ 
-        queryKey: ["userTrades", marketId] 
+
+      await queryClient.invalidateQueries({
+        queryKey: ["userTrades", marketId],
       });
-      await queryClient.invalidateQueries({ queryKey: ["marketInfo", marketId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["marketInfo", marketId],
+      });
       await queryClient.invalidateQueries({ queryKey: ["position", marketId] });
       await queryClient.invalidateQueries({ queryKey: ["balance"] });
     } catch (error: any) {
@@ -217,7 +227,7 @@ export default function MarketPageComponent({
     let amountToBeRecieved;
 
     const k = new Decimal(marketData.yesPool).mul(
-      new Decimal(marketData.noPool)
+      new Decimal(marketData.noPool),
     );
 
     if (currentTab === "BUY" && currentSharesTab === "YES") {
@@ -282,7 +292,7 @@ export default function MarketPageComponent({
     let amountToBeRecieved;
 
     const k = new Decimal(marketData.yesPool).mul(
-      new Decimal(marketData.noPool)
+      new Decimal(marketData.noPool),
     );
 
     if (currentTab === "BUY" && currentSharesTab === "YES") {
@@ -323,7 +333,7 @@ export default function MarketPageComponent({
           headers: {
             Authorization: `Bearer ${data?.accessToken}`,
           },
-        }
+        },
       );
 
       toast.success(res.data.message, { position: "top-center" });

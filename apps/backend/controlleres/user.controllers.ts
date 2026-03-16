@@ -93,17 +93,12 @@ const claimPayoutByIdController = async (req: Request, res: Response) => {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const positions = await tx.$queryRawUnsafe<PositionRow[]>(
-        `
+      const positions = await tx.$queryRaw<PositionRow[]>`
             SELECT *
             FROM "Position"
-            WHERE "userId" = $1
-              AND "id" = $2
-            LIMIT 1 FOR UPDATE
-            `,
-        userId,
-        positionId
-      );
+            WHERE "userId" = ${userId}
+              AND "id" = ${positionId}
+            LIMIT 1 FOR UPDATE`;
 
       const position = positions[0];
 
@@ -115,7 +110,7 @@ const claimPayoutByIdController = async (req: Request, res: Response) => {
         throw new Error("ALREADY_CLAIMED");
       }
 
-      const market = await prisma.market.findFirst({
+      const market = await tx.market.findFirst({
         where: {
           id: position.marketId,
         },
@@ -123,6 +118,10 @@ const claimPayoutByIdController = async (req: Request, res: Response) => {
 
       if (!market) {
         throw new Error("MARKET_NOT_FOUND");
+      }
+
+      if (market.status !== "RESOLVED") {
+        throw new Error("MARKET_NOT_RESOLVED");
       }
 
       const payoutAmount =
@@ -170,6 +169,12 @@ const claimPayoutByIdController = async (req: Request, res: Response) => {
     if (error.message === "MARKET_NOT_FOUND") {
       return res.status(400).json({
         message: "Market not found!",
+      });
+    }
+
+    if (error.message === "MARKET_NOT_RESOLVED") {
+      return res.status(400).json({
+        message: "Market not resolved!",
       });
     }
 

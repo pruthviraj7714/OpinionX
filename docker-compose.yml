@@ -1,17 +1,26 @@
 services:
-  backend:
-    image: tonytech12/opinionx-backend
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-
-  worker:
-    image: tonytech12/opinionx-worker
-    env_file:
-      - .env
-
   redis:
     image: redis
+    container_name: redis2
     ports:
-      - "6379:6379"
+      - "6380:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:16
+    container_name: postgres2
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: market-db
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:

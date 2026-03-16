@@ -26,7 +26,7 @@ const decimalSchema = z
   ])
   .refine((v) => v.isFinite(), {
     message: "Invalid decimal value",
-  })
+  });
 
 export const CreateMarketSchema = z.object({
   opinion: z
@@ -35,9 +35,9 @@ export const CreateMarketSchema = z.object({
   description: z
     .string()
     .min(5, { error: "Description should be at least of 15 characters" }),
-    expiryTime: z.coerce.date({
-      error: "Expiry time must be a valid date & time",
-    }),
+  expiryTime: z.coerce.date({
+    error: "Expiry time must be a valid date & time",
+  }),
   initialLiquidity: decimalSchema,
   feePercent: decimalSchema.optional().nullable(),
 });
@@ -49,5 +49,5 @@ export const PlaceTradeSchema = z.object({
 });
 
 export const ResolveOutcomeSchema = z.object({
-  outcome : z.enum(["YES", "NO"], {error : "Valid Value Should be selected"})
-})
+  outcome: z.enum(["YES", "NO"], { error: "Valid Value Should be selected" }),
+});
